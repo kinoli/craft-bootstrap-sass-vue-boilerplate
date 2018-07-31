@@ -1,0 +1,207 @@
+{#
+    # Homepage template
+    # ---------------
+    #
+    # When this template gets loaded, it will be because someone has accessed
+    # http://yoursite.com/ (without any URI). Craft checks to see if you have
+    # a Single section set to be the Homepage (as you do, by default), and
+    # loads the section’s Template (this file). A special ‘entry’ variable
+    # will already be set for you, assigned to the Homepage entry.
+    #
+    # It's worth noting that even if you didn't have a Homepage Single section,
+    # as long as this template remains at craft/templates/index.html, it
+    # would still be the one to get loaded when accessing http://yoursite.com/,
+    # albeit without an ‘entry’ variable already set for you.
+    #
+    # See this page for more details on how Craft routes requests:
+    # http://craftcms.com/docs/routing
+    #}
+   
+   {% extends "_layout" %}
+   {% block main %}
+    <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
+        <a class="navbar-brand" href="#">Navbar</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+  
+        <div class="collapse navbar-collapse" id="navbarsExampleDefault">
+          <ul class="navbar-nav mr-auto">
+            <li class="nav-item active">
+              <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">Link</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link disabled" href="#">Disabled</a>
+            </li>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="http://example.com" id="dropdown01" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Dropdown</a>
+              <div class="dropdown-menu" aria-labelledby="dropdown01">
+                <a class="dropdown-item" href="#">Action</a>
+                <a class="dropdown-item" href="#">Another action</a>
+                <a class="dropdown-item" href="#">Something else here</a>
+              </div>
+            </li>
+          </ul>
+          <form class="form-inline my-2 my-lg-0">
+            <input class="form-control mr-sm-2" type="text" placeholder="Search" aria-label="Search">
+            <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
+          </form>
+        </div>
+      </nav>
+  
+      <main role="main">
+  
+        <!-- Main jumbotron for a primary marketing message or call to action -->
+        <div class="jumbotron">
+          <div class="container">
+            <logo></logo>
+            <h1 class="display-3">Hello, world!</h1>
+            <p>This is a template for a simple marketing or informational website. It includes a large callout called a jumbotron and three supporting pieces of content. Use it as a starting point to create something more unique.</p>
+            <p><a class="btn btn-primary btn-lg" href="#" role="button">Learn more &raquo;</a></p>
+          </div>
+        </div>
+  
+        <div class="container">
+          <!-- Example row of columns -->
+          <div class="row">
+            <div class="col-md-4">
+              <h2>Heading</h2>
+              <p>Donec id elit non mi porta gravida at eget metus. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Etiam porta sem malesuada magna mollis euismod. Donec sed odio dui. </p>
+              <p><a class="btn btn-secondary" href="#" role="button">View details &raquo;</a></p>
+            </div>
+            <div class="col-md-4">
+              <h2>Heading</h2>
+              <p>Donec id elit non mi porta gravida at eget metus. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Etiam porta sem malesuada magna mollis euismod. Donec sed odio dui. </p>
+              <p><a class="btn btn-secondary" href="#" role="button">View details &raquo;</a></p>
+            </div>
+            <div class="col-md-4">
+              <h2>Heading</h2>
+              <p>Donec sed odio dui. Cras justo odio, dapibus ac facilisis in, egestas eget quam. Vestibulum id ligula porta felis euismod semper. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus.</p>
+              <p><a class="btn btn-secondary" href="#" role="button">View details &raquo;</a></p>
+            </div>
+          </div>
+  
+          <h2>Icon mapping</h2>
+          <div class="icon-list">
+            <ul class="glyphs css-mapping">
+              <li>
+                <div class="icon icon-facebook"></div>
+                <input type="text" readonly="readonly" value="facebook">
+              </li>
+              <li>
+                <div class="icon icon-google-plus"></div>
+                <input type="text" readonly="readonly" value="google-plus">
+              </li>
+              <li>
+                <div class="icon icon-twitter"></div>
+                <input type="text" readonly="readonly" value="twitter">
+              </li>
+              <li>
+                <div class="icon icon-linkedin"></div>
+                <input type="text" readonly="readonly" value="linkedin">
+              </li>
+              <li>
+                <div class="icon icon-pinterest-p"></div>
+                <input type="text" readonly="readonly" value="pinterest-p">
+              </li>
+              <li>
+                <div class="icon icon-youtube"></div>
+                <input type="text" readonly="readonly" value="youtube">
+              </li>
+              <li>
+                <div class="icon icon-right"></div>
+                <input type="text" readonly="readonly" value="right">
+              </li>
+              <li>
+                <div class="icon icon-down"></div>
+                <input type="text" readonly="readonly" value="down">
+              </li>
+              <li>
+                <div class="icon icon-up"></div>
+                <input type="text" readonly="readonly" value="up">
+              </li>
+              <li>
+                <div class="icon icon-left"></div>
+                <input type="text" readonly="readonly" value="left">
+              </li>
+              <li>
+                <div class="icon icon-close"></div>
+                <input type="text" readonly="readonly" value="close">
+              </li>
+              <li>
+                <div class="icon icon-search"></div>
+                <input type="text" readonly="readonly" value="search">
+              </li>
+              <li>
+                <div class="icon icon-help"></div>
+                <input type="text" readonly="readonly" value="help">
+              </li>
+              <li>
+                <div class="icon icon-load"></div>
+                <input type="text" readonly="readonly" value="load">
+              </li>
+              <!-- With animation -->
+              <li>
+                <div class="icon icon-load animate-spin"></div>
+                <input type="text" readonly="readonly" value="load">
+              </li>
+            </ul>
+          </div>
+
+          <h2>Bootstrap/Vue functionality</h2>
+          <!-- Button trigger modal -->
+          <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modal1">
+              Launch modal
+            </button>
+          <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modal2">
+            Launch modal
+          </button>
+          <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modal3">
+            Launch form modal
+          </button>
+
+          <modal-generic target="modal1" size="" title="{{ siteName }} Vue/Bootstrap Modal">
+            <h5>Simple Modal</h5>
+            <logo></logo>
+          </modal-generic>
+
+          <modal-generic target="modal2" size="" title="{{ siteName }} Vue/Bootstrap Modal">
+            <template slot="body">
+              <h5>Modal with slots</h5>
+              <logo></logo>
+            </template>
+          </modal-generic>
+          
+          <modal-generic target="modal3" size="" title="{{ siteName }} Vue/Bootstrap Form Modal">
+            <template slot="body">
+                <h5>Modal with slots</h5>
+                <form>
+                  <div class="form-group">
+                    <label for="recipient-name" class="col-form-label">Recipient:</label>
+                    <input type="text" class="form-control" id="recipient-name">
+                  </div>
+                  <div class="form-group">
+                    <label for="message-text" class="col-form-label">Message:</label>
+                    <textarea class="form-control" id="message-text"></textarea>
+                  </div>
+                </form>
+            </template>
+            <template slot="footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+              <button type="button" class="btn btn-primary">Save changes</button>
+            </template>
+          </modal-generic>
+  
+        </div> <!-- /container -->
+
+        <hr>
+  
+      </main>
+  
+      <footer class="container">
+        <p>&copy; Company 2017-2018</p>
+      </footer>
+   {% endblock %}

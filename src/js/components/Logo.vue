@@ -1,0 +1,30 @@
+<template lang="html">
+  <section class="logo">
+    <img :src="privateState.imgSrc" alt="Logo">
+  </section>
+</template>
+
+<script>
+import img from "../../img/logo.png"
+// import s from "../store"
+
+export default {
+  name: 'logo',
+  data () {
+    return {
+      privateState: {
+        imgSrc: img
+      }
+      // sharedState: s.state
+    }
+  },
+  mounted () {},
+  methods: {}
+}
+</script>
+
+<style scoped lang="scss">
+  .logo {
+    img { width: 100px; }
+  }
+</style>

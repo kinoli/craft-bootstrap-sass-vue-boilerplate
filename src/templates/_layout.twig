@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="../../../../favicon.ico">
+
+    <title>{% if title is defined %}{{ title }} - {% endif %}{{ siteName }}</title>
+    {#
+        # NOTE: THIS IS CREATED WITH SEOMATIC PLUGIN
+        # <title>{% if title is defined %}{{ title }} - {% endif %}{{ siteName }}</title>
+        # <meta name="description" content="">
+        # <meta name="keywords" content="">
+        # <meta name="author" content="">
+        # <meta name="robots" content="index, follow">
+    #}
+    {# {% hook 'seomaticRender' %} #}
+
+    {# NOTE: CREATE AND INSERT FAVICON LINKS AND META TAGS - Can use "http://realfavicongenerator.net/" #}
+    
+  </head>
+
+  <body>
+
+    <div id="app">
+
+        {# HEADER #}
+        <header role="banner">
+            {% block header %}{% endblock %}
+        </header>
+
+        {# MAIN #}
+        <main role="main">
+            {% block main %}{% endblock %}
+        </main>
+
+        {# FOOTER #}
+        <footer role="contentinfo">
+            {% block footer %}{% endblock %}
+        </footer>
+
+    </div>    
+
+    {# NOTE: INSERT GOOGLE ANALYTICS CODE #}
+
+    {# NOTE: Webpack Script Bundles Auto Created By HtmlWebpackPlugin and placed here #}
+  </body>
+</html>
