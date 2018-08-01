@@ -27,7 +27,7 @@ This project scaffolding is rather opinionated and makes use of the following to
 * [Vue.js 2](https://vuejs.org/) - The Progressive JavaScript Framework
 * [ECMAScript 2015 modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/New_in_JavaScript/ECMAScript_2015_support_in_Mozilla) - JavaScript's built-in modules
 * [SASS](http://tachyons.io/) - CSS with superpowers
-* [axios](https://github.com/axios/axios) - Promise based HTTP client for the browser and node.js
+* [axios](https://github.com/axios/axios) - [Not implemented yet] Promise based HTTP client for the browser and node.js
 * [ESLint](https://eslint.org/) - The pluggable linting utility for JavaScript and JSX.
 * [Standard JS](https://standardjs.com/) - JavaScript Standard Style
 * [Fontastic](http://fontastic.me/) - Add Vector Icons to Your Website
