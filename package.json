@@ -10,7 +10,9 @@
   },
   "scripts": {
     "dev": "webpack --mode development --config .kinoli/webpack.dev.js && webpack-dev-server --mode development --hot --config .kinoli/webpack.server.js",
-    "build": "webpack --mode production --config .kinoli/webpack.prod.js"
+    "build": "webpack --mode production --config .kinoli/webpack.prod.js",
+    "lint": "eslint --ext .js,.vue -f ./node_modules/eslint-friendly-formatter src",
+    "lint:fix": "eslint --ext .js,.vue -f ./node_modules/eslint-friendly-formatter --fix src"
   },
   "dependencies": {
     "axios": "^0.18.0",
