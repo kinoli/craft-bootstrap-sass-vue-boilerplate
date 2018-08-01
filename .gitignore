@@ -4,3 +4,7 @@
 /dev/lib
 /dev/.htaccess
 /dev/index.php
+/public_html/lib
+/public_html/.htaccess
+/public_html/index.php
+/cms/templates/_layout.twig
