@@ -46,7 +46,7 @@ module.exports = merge(common, {
       },
       {
         test: /\.scss$/,
-        exclude: path.resolve(__dirname, 'src/js/components'),
+        exclude: path.resolve(__dirname, '../src/components'),
         use: [
           // { loader: 'vue-style-loader' },
           MiniCssExtractPlugin.loader, // or MiniCssExtractPlugin.loader
