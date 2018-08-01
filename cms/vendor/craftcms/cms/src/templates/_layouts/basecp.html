@@ -1,0 +1,32 @@
+{% extends "_layouts/base" %}
+
+{# Give the body a .mobile class for mobile devices #}
+{% if craft.app.request.isMobileBrowser(true) %}
+    {% set bodyClass = (bodyClass is defined and bodyClass ? bodyClass~' ' : '') ~ 'mobile' %}
+{% endif %}
+
+{% do view.registerTranslations('app', [
+    "Show",
+    "Hide",
+]) %}
+
+{% set localeData = craft.app.locale %}
+{% set orientation = localeData.getOrientation() %}
+
+{% block foot %}
+    <form id="x" method="post" accept-charset="UTF-8">
+        {{ csrfInput() }}
+    </form>
+    <noscript>
+        <div class="message-container no-access">
+            <div class="pane notice">
+                <p>{{ "JavaScript must be enabled to access the Craft control panel."|t('app') }}</p>
+            </div>
+        </div>
+    </noscript>
+
+    {% js at head %}
+        // Picture element HTML5 shiv
+        document.createElement('picture');
+    {% endjs %}
+{% endblock %}
