@@ -4,8 +4,8 @@
   </section>
 </template>
 
-<script>
-import img from "../../img/logo.png"
+<script lang="js">
+import img from '../img/logo.png'
 // import s from "../store"
 
 export default {

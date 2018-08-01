@@ -3,7 +3,7 @@
   <section class="modal-generic">    
     <!-- Modal -->
     <div class="modal fade" :id="target" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
-      <div class="modal-dialog" role="document">
+      <div class="modal-dialog" :class="getSizeClass()" role="document">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="exampleModalLabel">{{ title }}</h5>
@@ -26,19 +26,20 @@
 </template>
 
 <script lang="js">
-  export default  {
+  export default {
     name: 'modal-generic',
     props: ['target', 'title', 'size'],
-    mounted() {
+    mounted () {
 
     },
-    data() {
+    data () {
       return {
-
       }
     },
     methods: {
-
+      getSizeClass () {
+        return this.size ? 'modal-' + this.size : ''
+      }
     },
     computed: {
 

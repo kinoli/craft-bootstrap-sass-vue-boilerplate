@@ -1,7 +1,7 @@
 import Vue from 'vue'
 // import s from "./store"
-import Logo from './components/Logo.vue'
-import ModalGeneric from './components/Modal-generic.vue'
+import Logo from '../components/Logo.vue'
+import ModalGeneric from '../components/Modal-generic.vue'
 
 // Lazy load scripts for components, not routes!
 // const coolDiv = document.querySelector("#cool")
