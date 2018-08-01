@@ -43,6 +43,11 @@ $ cd my-project
 $ git clone https://github.com/kinoli/craft-bootstrap-sass-vue-boilerplate ./
 ```
 
+> {Tip} I'f you want to now start using your own remote repo. Run this command. 
+```
+$ git remote set-url origin git@gitlab.[YOUR-SERVER].com:GROUP/REPO-NAME.git
+```
+
 ## 2. Install Dependencies
 
 In the project folder run: (`yarn` seems a bit buggy here, so we'll use npm)
