@@ -40,7 +40,7 @@ To start, run this command in your project directory.
 
 ``` sh
 $ cd my-project
-$ git clone https://github.com/kinoli/craft-bootstrap-sass-vue-boilerplate
+$ npm install craftcms-bootstrap-sass-vue-boilerplate
 ```
 
 ## 2. Install Dependencies
