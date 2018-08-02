@@ -40,6 +40,10 @@ module.exports = {
         }
       },
       {
+        test: /\.(ico)$/,
+        loader: 'file-loader?name=img/[name].[ext]'  // <-- retain original file name
+      },
+      {
         test: /\.(mp4|webm|ogg|mp3|wav|flac|aac)(\?.*)?$/,
         loader: 'file-loader',
         options: {
