@@ -106,6 +106,18 @@ If you get an error and your web server is setup properly, you can run the Craft
 
 > {tip} That `.env` file will be processed via [PHP dotenv], which the `craftcms/craft` project comes with preinstalled. The advantage of using PHP dotenv is that it offers a place to store sensitive information (like database connection settings) in a file that doesn’t get committed to your Git repository.
 
+### Install Craft Plugins
+
+Here are some plugins that I like to use on my websites. These can all be installed within your craft configuration at `/admin`.
+
+* Control Panel Nav
+* Embedded Assets
+* Gatekeeper
+* Iconpicker
+* Redactor
+* Redactor Custom Styles
+* Redactor Tweaks
+
 ## 7. Configure FTP Deployment
 
 Deployment is done by running `yarn build` and everything in the /public_html directory needs to be sync'd to your server, as well, any changes in your /cms/templates directory.

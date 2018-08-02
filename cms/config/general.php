@@ -25,6 +25,8 @@ return [
 
         // The secure key Craft will use for hashing and encrypting data
         'securityKey' => getenv('SECURITY_KEY'),
+
+        'extraAllowedFileExtensions' => 'json',
     ],
 
     // Dev environment settings
