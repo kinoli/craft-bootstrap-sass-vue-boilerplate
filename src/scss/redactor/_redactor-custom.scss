@@ -1,0 +1,17 @@
+/*
+These will all display proper styling in Redactor to match
+the front-end website styling. An accompanying dropdown 
+customStyle is necessary
+
+See: ~/cms/config/redactor/Kinoli.json
+*/
+@include redactor-class('lead-in') {
+  font-size: $font-size-lg;
+  line-height: 1.5;
+}
+@include redactor-class('btn-primary') {
+  @include button-variant($primary, $white);
+}
+@include redactor-class('btn-secondary') {
+  @include button-variant($secondary, $white);
+}

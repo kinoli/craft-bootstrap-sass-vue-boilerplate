@@ -62,7 +62,7 @@ module.exports = {
         }
       },
       {
-        test: /\.(scss)$/,
+        test: /\.(css|scss)$/,
         use: [
           {
             // Adds CSS to the DOM by injecting a `<style>` tag
@@ -75,23 +75,24 @@ module.exports = {
               sourceMap: true
             }
           },
-          {
-            // Loader for webpack to process CSS with PostCSS
-            loader: 'postcss-loader',
-            options: {
-              plugins: function () {
-                return [
-                  require('precss'),
-                  require('autoprefixer')
-                ]
-              }
-            }
-          },
+          // {
+          //   // Loader for webpack to process CSS with PostCSS
+          //   loader: 'postcss-loader',
+          //   options: {
+          //     plugins: function () {
+          //       return [
+          //         require('precss'),
+          //         require('autoprefixer')
+          //       ]
+          //     }
+          //   }
+          // },
           {
             // Loads a SASS/SCSS file and compiles it to CSS
             loader: 'sass-loader',
             options: {
-              sourceMap: true
+              sourceMap: true,
+              data: '@import "./src/scss/vue-globals";'
             }
           }
         ]

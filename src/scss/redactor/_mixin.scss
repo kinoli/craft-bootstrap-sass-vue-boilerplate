@@ -1,0 +1,12 @@
+@mixin redactor-class($name, $tag: 'p') {
+  :root:root {
+    .redactor-styles {
+      #{$tag}.#{$name} {
+        @content;
+      }
+    }
+    .redactor-dropdown-item-#{$name} {
+      @content;
+    }
+  }
+}
