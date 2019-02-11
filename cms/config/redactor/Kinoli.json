@@ -1,110 +1,88 @@
 {
-    "buttons": ["html", "format", "bold", "italic", "lists", "link", "image", "video"],
-    "plugins": ["fullscreen", "video", "customstyles"],
-    "toolbarFixed": true,
-    "customStyles": {
-      "style": {
-        "dropdown": {
-          "marked": {
-            "args": "mark"
-          },
-          "code": {
-            "args": "code"
-          },
-          "variable": {
-            "args": "var"
-          },
-          "shortcut": {
-            "args": "kbd"
-          },
-          "deleted": {
-            "args": "del"
-          },
-          "inserted": {
-            "args": "ins"
-          },
-          "superscript": {
-            "args": "sup"
-          },
-          "subscript": {
-            "args": "sub"
-          },
-          "quote": {
-            "args": "q"
-          },
-          "sourceCitation": {
-            "args": "cite"
-          },
-          "smallPrint": {
-            "args": "small"
-          },
-          "clearStyles": {
-            "api": "module.inline.clearformat"
-          }
-        }
-      },
-      "textColor": {
-        "dropdown": {
-          "red": {
-            "args": {
-              "tag": "span",
-              "class": "color-red",
-              "type": "toggle"
-            }
-          },
-          "green": {
-            "args": {
-              "tag": "span",
-              "class": "color-green",
-              "type": "toggle"
-            }
-          }
-        }
-      },
-      "quote": {
-        "args": "q"
-      },
-      "marked": {
-        "args": "mark"
-      },
-      "favorite": {
-        "args": {
-          "tag": "span",
-          "class": "favorite",
-          "type": "toggle"
-        }
-      },
-      "clearStyles": {
-        "api": "module.inline.clearformat"
-      },
-      "align": {
-        "dropdown": {
-          "alignLeft": {
-            "api": "module.block.format",
-            "args": "p"
-          },
-          "alignRight": {
-            "api": "module.block.format",
-            "args": {
+  "buttons": ["html", "format", "bold", "italic", "lists", "link", "file", "image", "video", "line"],
+  "plugins": ["clips", "alignment", "table", "fullscreen", "video", "customstyles", "properties"],
+  "formatting": ["p", "blockquote", "h2", "h3", "h4", "h5", "h6"],
+  "toolbarFixed": true,
+  "linkNewTab": true,
+  "clips": [
+      ["Table", "<div class=\"table-responsive\"><table class=\"table\"><thead><tr><th scope=\"col\">#</th><th scope=\"col\">First</th><th scope=\"col\">Last</th><th scope=\"col\">Handle</th></tr></thead><tbody><tr><th scope=\"row\">1</th><td>Mark</td><td>Otto</td><td>@mdo</td></tr><tr><th scope=\"row\">2</th><td>Jacob</td><td>Thornton</td><td>@fat</td></tr></tbody></table></div>"],
+      ["Striped Table", "<div class=\"table-responsive\"><table class=\"table table-striped\"><thead><tr><th scope=\"col\">#</th><th scope=\"col\">First</th><th scope=\"col\">Last</th><th scope=\"col\">Handle</th></tr></thead><tbody><tr><th scope=\"row\">1</th><td>Mark</td><td>Otto</td><td>@mdo</td></tr><tr><th scope=\"row\">2</th><td>Jacob</td><td>Thornton</td><td>@fat</td></tr></tbody></table></div>"],
+      ["Small Table", "<div class=\"table-responsive\"><table class=\"table table-sm\"><thead><tr><th scope=\"col\">#</th><th scope=\"col\">First</th><th scope=\"col\">Last</th><th scope=\"col\">Handle</th></tr></thead><tbody><tr><th scope=\"row\">1</th><td>Mark</td><td>Otto</td><td>@mdo</td></tr><tr><th scope=\"row\">2</th><td>Jacob</td><td>Thornton</td><td>@fat</td></tr></tbody></table></div>"],
+      ["Small Striped Table", "<div class=\"table-responsive\"><table class=\"table table-striped table-sm\"><thead><tr><th scope=\"col\">#</th><th scope=\"col\">First</th><th scope=\"col\">Last</th><th scope=\"col\">Handle</th></tr></thead><tbody><tr><th scope=\"row\">1</th><td>Mark</td><td>Otto</td><td>@mdo</td></tr><tr><th scope=\"row\">2</th><td>Jacob</td><td>Thornton</td><td>@fat</td></tr></tbody></table></div>"]
+  ],
+  "customStyles": {
+    "style": {
+      "dropdown": {
+        "lead-in": {
+          "title": "Lead-in Text",
+          "api": "module.block.format",
+          "args": {
               "tag": "p",
-              "class": "align-right"
-            }
-          },
-          "alignCenter": {
-            "api": "module.block.format",
-            "args": {
-              "tag": "p",
-              "class": "align-center"
-            }
-          },
-          "alignJustify": {
-            "api": "module.block.format",
-            "args": {
-              "tag": "p",
-              "class": "align-justify"
-            }
+              "class": "lead-in"
           }
+        },
+        "btn-primary": {
+          "title": "Primary Button",
+          "api": "module.inline.format",
+          "args": {
+              "tag": "a",
+              "class": "btn btn-primary"
+          }
+        },
+        "btn-secondary": {
+          "title": "Secondary Button",
+          "api": "module.inline.format",
+          "args": {
+              "tag": "a",
+              "class": "btn btn-secondary"
+          }
+        },
+        "marked": {
+          "args": "mark"
+        },
+        "code": {
+          "args": "code"
+        },
+        "variable": {
+          "args": "var"
+        },
+        "shortcut": {
+          "args": "kbd"
+        },
+        "deleted": {
+          "args": "del"
+        },
+        "inserted": {
+          "args": "ins"
+        },
+        "superscript": {
+          "args": "sup"
+        },
+        "subscript": {
+          "args": "sub"
+        },
+        "quote": {
+          "args": "q"
+        },
+        "sourceCitation": {
+          "args": "cite"
+        },
+        "smallPrint": {
+          "args": "small"
+        },
+        "clearStyles": {
+          "api": "module.inline.clearformat"
         }
       }
+    },
+    "quote": {
+      "args": "q"
+    },
+    "marked": {
+      "args": "mark"
+    },
+    "clearStyles": {
+      "api": "module.inline.clearformat"
     }
   }
+}

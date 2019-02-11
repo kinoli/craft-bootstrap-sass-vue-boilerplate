@@ -142,27 +142,27 @@ See: ~/cms/config/redactor/Kinoli.json
   font-size: 1.25rem;
   line-height: 1.5; }
 
-:root:root .redactor-styles p.btn-primary {
+:root:root .redactor-styles a.btn-primary {
   color: #fff;
   background-color: #007bff;
   border-color: #fff; }
-  :root:root .redactor-styles p.btn-primary:hover {
+  :root:root .redactor-styles a.btn-primary:hover {
     color: #fff;
     background-color: #0069d9;
     border-color: #e6e6e6; }
-  :root:root .redactor-styles p.btn-primary:focus, :root:root .redactor-styles p.btn-primary.focus {
+  :root:root .redactor-styles a.btn-primary:focus, :root:root .redactor-styles a.btn-primary.focus {
     box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.5); }
-  :root:root .redactor-styles p.btn-primary.disabled, :root:root .redactor-styles p.btn-primary:disabled {
+  :root:root .redactor-styles a.btn-primary.disabled, :root:root .redactor-styles a.btn-primary:disabled {
     color: #fff;
     background-color: #007bff;
     border-color: #fff; }
-  :root:root .redactor-styles p.btn-primary:not(:disabled):not(.disabled):active, :root:root .redactor-styles p.btn-primary:not(:disabled):not(.disabled).active,
-  .show > :root:root .redactor-styles p.btn-primary.dropdown-toggle {
+  :root:root .redactor-styles a.btn-primary:not(:disabled):not(.disabled):active, :root:root .redactor-styles a.btn-primary:not(:disabled):not(.disabled).active,
+  .show > :root:root .redactor-styles a.btn-primary.dropdown-toggle {
     color: #fff;
     background-color: #0062cc;
     border-color: #dfdfdf; }
-    :root:root .redactor-styles p.btn-primary:not(:disabled):not(.disabled):active:focus, :root:root .redactor-styles p.btn-primary:not(:disabled):not(.disabled).active:focus,
-    .show > :root:root .redactor-styles p.btn-primary.dropdown-toggle:focus {
+    :root:root .redactor-styles a.btn-primary:not(:disabled):not(.disabled):active:focus, :root:root .redactor-styles a.btn-primary:not(:disabled):not(.disabled).active:focus,
+    .show > :root:root .redactor-styles a.btn-primary.dropdown-toggle:focus {
       box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.5); }
 
 :root:root .redactor-dropdown-item-btn-primary {
@@ -188,27 +188,27 @@ See: ~/cms/config/redactor/Kinoli.json
     .show > :root:root .redactor-dropdown-item-btn-primary.dropdown-toggle:focus {
       box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.5); }
 
-:root:root .redactor-styles p.btn-secondary {
+:root:root .redactor-styles a.btn-secondary {
   color: #fff;
   background-color: #6c757d;
   border-color: #fff; }
-  :root:root .redactor-styles p.btn-secondary:hover {
+  :root:root .redactor-styles a.btn-secondary:hover {
     color: #fff;
     background-color: #5a6268;
     border-color: #e6e6e6; }
-  :root:root .redactor-styles p.btn-secondary:focus, :root:root .redactor-styles p.btn-secondary.focus {
+  :root:root .redactor-styles a.btn-secondary:focus, :root:root .redactor-styles a.btn-secondary.focus {
     box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.5); }
-  :root:root .redactor-styles p.btn-secondary.disabled, :root:root .redactor-styles p.btn-secondary:disabled {
+  :root:root .redactor-styles a.btn-secondary.disabled, :root:root .redactor-styles a.btn-secondary:disabled {
     color: #fff;
     background-color: #6c757d;
     border-color: #fff; }
-  :root:root .redactor-styles p.btn-secondary:not(:disabled):not(.disabled):active, :root:root .redactor-styles p.btn-secondary:not(:disabled):not(.disabled).active,
-  .show > :root:root .redactor-styles p.btn-secondary.dropdown-toggle {
+  :root:root .redactor-styles a.btn-secondary:not(:disabled):not(.disabled):active, :root:root .redactor-styles a.btn-secondary:not(:disabled):not(.disabled).active,
+  .show > :root:root .redactor-styles a.btn-secondary.dropdown-toggle {
     color: #fff;
     background-color: #545b62;
     border-color: #dfdfdf; }
-    :root:root .redactor-styles p.btn-secondary:not(:disabled):not(.disabled):active:focus, :root:root .redactor-styles p.btn-secondary:not(:disabled):not(.disabled).active:focus,
-    .show > :root:root .redactor-styles p.btn-secondary.dropdown-toggle:focus {
+    :root:root .redactor-styles a.btn-secondary:not(:disabled):not(.disabled):active:focus, :root:root .redactor-styles a.btn-secondary:not(:disabled):not(.disabled).active:focus,
+    .show > :root:root .redactor-styles a.btn-secondary.dropdown-toggle:focus {
       box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.5); }
 
 :root:root .redactor-dropdown-item-btn-secondary {
@@ -233,4 +233,11 @@ See: ~/cms/config/redactor/Kinoli.json
     :root:root .redactor-dropdown-item-btn-secondary:not(:disabled):not(.disabled):active:focus, :root:root .redactor-dropdown-item-btn-secondary:not(:disabled):not(.disabled).active:focus,
     .show > :root:root .redactor-dropdown-item-btn-secondary.dropdown-toggle:focus {
       box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.5); }
+
+:root:root .redactor-styles .table-sm th,
+:root:root .redactor-styles .table-sm td {
+  padding: 0.3rem; }
+
+:root:root .redactor-styles .table-striped tbody tr:nth-of-type(odd) {
+  background-color: rgba(0, 0, 0, 0.05); }
 

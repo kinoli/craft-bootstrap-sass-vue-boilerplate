@@ -9,9 +9,29 @@ See: ~/cms/config/redactor/Kinoli.json
   font-size: $font-size-lg;
   line-height: 1.5;
 }
-@include redactor-class('btn-primary') {
+@include redactor-class('btn-primary', 'a') {
   @include button-variant($primary, $white);
 }
-@include redactor-class('btn-secondary') {
+@include redactor-class('btn-secondary', 'a') {
   @include button-variant($secondary, $white);
+}
+
+// general styling
+:root:root .redactor-styles {
+  .table-sm {
+    th,
+    td {
+      padding: $table-cell-padding-sm;
+    }
+  }
+
+  // Zebra-striping
+  //
+  // Default zebra-stripe styles (alternating gray and transparent backgrounds)
+
+  .table-striped {
+    tbody tr:nth-of-type(#{$table-striped-order}) {
+      background-color: $table-accent-bg;
+    }
+  }
 }

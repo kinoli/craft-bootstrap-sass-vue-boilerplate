@@ -40,9 +40,11 @@ module.exports = merge(common, {
       {
         test: /\.js$/,
         exclude: /(node_modules|bower_components)/,
-        use: [{
-          loader: 'babel-loader'
-        }]
+        loader: 'babel-loader',
+        query: {
+          presets: ['vue', 'es2015'],
+          plugins: ['transform-es2015-arrow-functions', 'transform-class-properties', 'transform-object-rest-spread']
+        }
       },
       {
         test: /\.scss$/,

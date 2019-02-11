@@ -51,8 +51,9 @@ module.exports = {
         console.log('\x1b[46m')
         console.log(' DONE: Redactor Updated ')
         console.log('\x1b[0m')
-        console.log('\x1b[36m%s\x1b[0m', 'For remote delivery, don\'t forget to upload: /cms/config/redactor/resources/kinoli.css')
+        // console.log('\x1b[36m%s\x1b[0m', 'For remote delivery, don\'t forget to upload: /cms/config/redactor/resources/kinoli.css')
       }
   })
   ]
 }
+232
