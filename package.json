@@ -22,7 +22,6 @@
     "bootstrap": "^4.3.1",
     "bootstrap-vue": "^2.0.0-rc.20",
     "event-hooks-webpack-plugin": "^2.1.0",
-    "lodash": "^4.17.11",
     "popper.js": "^1.14.3",
     "resolve-url-loader": "^3.1.0",
     "vue": "^2.6.10"
