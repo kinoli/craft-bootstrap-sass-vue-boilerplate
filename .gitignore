@@ -8,4 +8,4 @@
 /public_html/.htaccess
 /public_html/index.php
 /cms/templates/_layout.twig
-**/license.key
+/cms/config/license.key
