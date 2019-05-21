@@ -23,6 +23,7 @@
     "event-hooks-webpack-plugin": "^2.1.0",
     "jquery": "^3.3.1",
     "popper.js": "^1.14.3",
+    "resolve-url-loader": "^3.1.0",
     "vue": "^2.5.16"
   },
   "devDependencies": {
@@ -52,7 +53,6 @@
     "optimize-css-assets-webpack-plugin": "^5.0.0",
     "postcss-loader": "^2.1.6",
     "precss": "^3.1.2",
-    "resolve-url-loader": "github:bholloway/resolve-url-loader",
     "sass-loader": "^7.0.3",
     "style-loader": "^0.21.0",
     "vue-loader": "^15.2.6",
