@@ -69,6 +69,11 @@ class EntryType extends Model
      */
     public $titleFormat;
 
+    /**
+     * @var string UID
+     */
+    public $uid;
+
     // Public Methods
     // =========================================================================
 
@@ -88,31 +93,43 @@ class EntryType extends Model
     /**
      * @inheritdoc
      */
+    public function attributeLabels()
+    {
+        return [
+            'handle' => Craft::t('app', 'Handle'),
+            'name' => Craft::t('app', 'Name'),
+            'titleFormat' => Craft::t('app', 'Title Format'),
+            'titleLabel' => Craft::t('app', 'Title Field Label'),
+        ];
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function rules()
     {
-        $rules = [
-            [['id', 'sectionId', 'fieldLayoutId'], 'number', 'integerOnly' => true],
-            [['name', 'handle'], 'required'],
-            [['name', 'handle'], 'string', 'max' => 255],
-            [
-                ['handle'],
-                HandleValidator::class,
-                'reservedWords' => ['id', 'dateCreated', 'dateUpdated', 'uid', 'title']
-            ],
-            [
-                ['name'],
-                UniqueValidator::class,
-                'targetClass' => EntryTypeRecord::class,
-                'targetAttribute' => ['name', 'sectionId'],
-                'comboNotUnique' => Craft::t('yii', '{attribute} "{value}" has already been taken.'),
-            ],
-            [
-                ['handle'],
-                UniqueValidator::class,
-                'targetClass' => EntryTypeRecord::class,
-                'targetAttribute' => ['handle', 'sectionId'],
-                'comboNotUnique' => Craft::t('yii', '{attribute} "{value}" has already been taken.'),
-            ],
+        $rules = parent::rules();
+        $rules[] = [['id', 'sectionId', 'fieldLayoutId'], 'number', 'integerOnly' => true];
+        $rules[] = [['name', 'handle'], 'required'];
+        $rules[] = [['name', 'handle'], 'string', 'max' => 255];
+        $rules[] = [
+            ['handle'],
+            HandleValidator::class,
+            'reservedWords' => ['id', 'dateCreated', 'dateUpdated', 'uid', 'title']
+        ];
+        $rules[] = [
+            ['name'],
+            UniqueValidator::class,
+            'targetClass' => EntryTypeRecord::class,
+            'targetAttribute' => ['name', 'sectionId'],
+            'comboNotUnique' => Craft::t('yii', '{attribute} "{value}" has already been taken.'),
+        ];
+        $rules[] = [
+            ['handle'],
+            UniqueValidator::class,
+            'targetClass' => EntryTypeRecord::class,
+            'targetAttribute' => ['handle', 'sectionId'],
+            'comboNotUnique' => Craft::t('yii', '{attribute} "{value}" has already been taken.'),
         ];
 
         if ($this->hasTitleField) {
@@ -131,7 +148,7 @@ class EntryType extends Model
      */
     public function __toString(): string
     {
-        return (string)$this->handle;
+        return (string)$this->handle ?: static::class;
     }
 
     /**

@@ -11,12 +11,17 @@ use Craft;
 use craft\base\Element;
 use craft\controllers\ElementIndexesController;
 use craft\db\Query;
+use craft\db\Table;
+use craft\elements\actions\DeepDuplicate;
 use craft\elements\actions\Delete;
+use craft\elements\actions\Duplicate;
 use craft\elements\actions\Edit;
 use craft\elements\actions\NewChild;
+use craft\elements\actions\Restore;
 use craft\elements\actions\SetStatus;
 use craft\elements\actions\View;
 use craft\elements\db\CategoryQuery;
+use craft\elements\db\ElementQuery;
 use craft\elements\db\ElementQueryInterface;
 use craft\helpers\UrlHelper;
 use craft\models\CategoryGroup;
@@ -116,12 +121,12 @@ class Category extends Element
 
         foreach ($groups as $group) {
             $sources[] = [
-                'key' => 'group:' . $group->id,
+                'key' => 'group:' . $group->uid,
                 'label' => Craft::t('site', $group->name),
                 'data' => ['handle' => $group->handle],
                 'criteria' => ['groupId' => $group->id],
                 'structureId' => $group->structureId,
-                'structureEditable' => Craft::$app->getRequest()->getIsConsoleRequest() ? true : Craft::$app->getUser()->checkPermission('editCategories:' . $group->id),
+                'structureEditable' => Craft::$app->getRequest()->getIsConsoleRequest() ? true : Craft::$app->getUser()->checkPermission('editCategories:' . $group->uid),
             ];
         }
 
@@ -133,13 +138,28 @@ class Category extends Element
      */
     protected static function defineActions(string $source = null): array
     {
+        // Get the selected site
+        $controller = Craft::$app->controller;
+        if ($controller instanceof ElementIndexesController) {
+            /** @var ElementQuery $elementQuery */
+            $elementQuery = $controller->getElementQuery();
+        } else {
+            $elementQuery = null;
+        }
+        $site = $elementQuery && $elementQuery->siteId
+            ? Craft::$app->getSites()->getSiteById($elementQuery->siteId)
+            : Craft::$app->getSites()->getCurrentSite();
+
         // Get the group we need to check permissions on
         if (preg_match('/^group:(\d+)$/', $source, $matches)) {
             $group = Craft::$app->getCategories()->getGroupById($matches[1]);
+        } else if (preg_match('/^group:(.+)$/', $source, $matches)) {
+            $group = Craft::$app->getCategories()->getGroupByUid($matches[1]);
         }
 
         // Now figure out what we can do with it
         $actions = [];
+        $elementsService = Craft::$app->getElements();
 
         if (!empty($group)) {
             // Set Status
@@ -147,19 +167,15 @@ class Category extends Element
 
             // View
             // They are viewing a specific category group. See if it has URLs for the requested site
-            $controller = Craft::$app->controller;
-            if ($controller instanceof ElementIndexesController) {
-                $siteId = $controller->getElementQuery()->siteId ?: Craft::$app->getSites()->getCurrentSite()->id;
-                if (isset($group->siteSettings[$siteId]) && $group->siteSettings[$siteId]->hasUrls) {
-                    $actions[] = Craft::$app->getElements()->createAction([
-                        'type' => View::class,
-                        'label' => Craft::t('app', 'View category'),
-                    ]);
-                }
+            if (isset($group->siteSettings[$site->id]) && $group->siteSettings[$site->id]->hasUrls) {
+                $actions[] = $elementsService->createAction([
+                    'type' => View::class,
+                    'label' => Craft::t('app', 'View category'),
+                ]);
             }
 
             // Edit
-            $actions[] = Craft::$app->getElements()->createAction([
+            $actions[] = $elementsService->createAction([
                 'type' => Edit::class,
                 'label' => Craft::t('app', 'Edit category'),
             ]);
@@ -168,21 +184,42 @@ class Category extends Element
             $structure = Craft::$app->getStructures()->getStructureById($group->structureId);
 
             if ($structure) {
-                $actions[] = Craft::$app->getElements()->createAction([
+                $newChildUrl = 'categories/' . $group->handle . '/new';
+
+                if (Craft::$app->getIsMultiSite()) {
+                    $newChildUrl .= '/' . $site->handle;
+                }
+
+                $actions[] = $elementsService->createAction([
                     'type' => NewChild::class,
                     'label' => Craft::t('app', 'Create a new child category'),
                     'maxLevels' => $structure->maxLevels,
-                    'newChildUrl' => 'categories/' . $group->handle . '/new',
+                    'newChildUrl' => $newChildUrl,
                 ]);
             }
 
+            // Duplicate
+            $actions[] = Duplicate::class;
+
+            if ($group->maxLevels != 1) {
+                $actions[] = DeepDuplicate::class;
+            }
+
             // Delete
-            $actions[] = Craft::$app->getElements()->createAction([
+            $actions[] = $elementsService->createAction([
                 'type' => Delete::class,
                 'confirmationMessage' => Craft::t('app', 'Are you sure you want to delete the selected categories?'),
                 'successMessage' => Craft::t('app', 'Categories deleted.'),
             ]);
         }
+
+        // Restore
+        $actions[] = $elementsService->createAction([
+            'type' => Restore::class,
+            'successMessage' => Craft::t('app', 'Categories restored.'),
+            'partialSuccessMessage' => Craft::t('app', 'Some categories restored.'),
+            'failMessage' => Craft::t('app', 'Categories not restored.'),
+        ]);
 
         return $actions;
     }
@@ -248,6 +285,12 @@ class Category extends Element
     public $newParentId;
 
     /**
+     * @var bool Whether the category was deleted along with its group
+     * @see beforeDelete()
+     */
+    public $deletedWithGroup = false;
+
+    /**
      * @var bool|null
      * @see _hasNewParent()
      */
@@ -273,7 +316,6 @@ class Category extends Element
     {
         $rules = parent::rules();
         $rules[] = [['groupId', 'newParentId'], 'number', 'integerOnly' => true];
-
         return $rules;
     }
 
@@ -319,7 +361,7 @@ class Category extends Element
      */
     public function getIsEditable(): bool
     {
-        return Craft::$app->getUser()->checkPermission('editCategories:' . $this->groupId);
+        return Craft::$app->getUser()->checkPermission('editCategories:' . $this->getGroup()->uid);
     }
 
     /**
@@ -416,6 +458,9 @@ class Category extends Element
      */
     public function beforeSave(bool $isNew): bool
     {
+        // Set the structure ID for Element::attributes() and afterSave()
+        $this->structureId = $this->getGroup()->structureId;
+
         if ($this->_hasNewParent()) {
             if ($this->newParentId) {
                 $parentCategory = Craft::$app->getCategories()->getCategoryById($this->newParentId, $this->siteId);
@@ -439,8 +484,6 @@ class Category extends Element
      */
     public function afterSave(bool $isNew)
     {
-        $group = $this->getGroup();
-
         // Get the category record
         if (!$isNew) {
             $record = CategoryRecord::findOne($this->id);
@@ -459,9 +502,9 @@ class Category extends Element
         // Has the parent changed?
         if ($this->_hasNewParent()) {
             if (!$this->newParentId) {
-                Craft::$app->getStructures()->appendToRoot($group->structureId, $this);
+                Craft::$app->getStructures()->appendToRoot($this->structureId, $this);
             } else {
-                Craft::$app->getStructures()->append($group->structureId, $this, $this->getParent());
+                Craft::$app->getStructures()->append($this->structureId, $this, $this->getParent());
             }
         }
 
@@ -469,6 +512,62 @@ class Category extends Element
         Craft::$app->getElements()->updateDescendantSlugsAndUris($this, true, true);
 
         parent::afterSave($isNew);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function beforeDelete(): bool
+    {
+        if (!parent::beforeDelete()) {
+            return false;
+        }
+
+        // Update the category record
+        $data = [
+            'deletedWithGroup' => $this->deletedWithGroup,
+            'parentId' => null,
+        ];
+
+        if ($this->structureId) {
+            // Remember the parent ID, in case the entry needs to be restored later
+            $parentId = $this->getAncestors(1)
+                ->anyStatus()
+                ->select(['elements.id'])
+                ->scalar();
+            if ($parentId) {
+                $data['parentId'] = $parentId;
+            }
+        }
+
+        Craft::$app->getDb()->createCommand()
+            ->update(Table::CATEGORIES, $data, ['id' => $this->id], [], false)
+            ->execute();
+
+        return true;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function afterRestore()
+    {
+        $structureId = $this->getGroup()->structureId;
+
+        // Add the category back into its structure
+        $parent = self::find()
+            ->structureId($structureId)
+            ->innerJoin('{{%categories}} j', '[[j.parentId]] = [[elements.id]]')
+            ->andWhere(['j.id' => $this->id])
+            ->one();
+
+        if (!$parent) {
+            Craft::$app->getStructures()->appendToRoot($structureId, $this);
+        } else {
+            Craft::$app->getStructures()->append($structureId, $this, $parent);
+        }
+
+        parent::afterRestore();
     }
 
     /**
@@ -488,14 +587,14 @@ class Category extends Element
 
             $sources = (new Query())
                 ->select(['fieldId', 'sourceId', 'sourceSiteId'])
-                ->from(['{{%relations}}'])
+                ->from([Table::RELATIONS])
                 ->where(['targetId' => $this->id])
                 ->all();
 
             foreach ($sources as $source) {
                 $existingAncestorRelations = (new Query())
                     ->select(['targetId'])
-                    ->from(['{{%relations}}'])
+                    ->from([Table::RELATIONS])
                     ->where([
                         'fieldId' => $source['fieldId'],
                         'sourceId' => $source['sourceId'],
@@ -519,7 +618,7 @@ class Category extends Element
             if (!empty($newRelationValues)) {
                 Craft::$app->getDb()->createCommand()
                     ->batchInsert(
-                        '{{%relations}}',
+                        Table::RELATIONS,
                         ['fieldId', 'sourceId', 'sourceSiteId', 'targetId'],
                         $newRelationValues)
                     ->execute();

@@ -33,7 +33,7 @@ php composer.phar require --prefer-dist yiisoft/yii2-debug
 or add
 
 ```
-"yiisoft/yii2-debug": "~2.0.0"
+"yiisoft/yii2-debug": "~2.1.0"
 ```
 
 to the require section of your `composer.json` file.
@@ -97,5 +97,16 @@ If your application is run under a virtualized or dockerized environment, it is 
 'traceLine' => function($options, $panel) {
     $filePath = str_replace(Yii::$app->basePath, '~/path/to/your/app', $options['file']);
     return strtr('<a href="ide://open?url=file://{file}&line={line}">{text}</a>', ['{file}' => $filePath]);
+},
+```
+You can add all posible path like this (valid for advanced template backend main-local.php config):
+
+```php
+'traceLine' => function($options, $panel) {
+    $filePath = $options['file'];
+    $filePath = str_replace(Yii::$app->basePath, 'file://~/path/to/your/backend', $filePath);
+    $filePath = str_replace(dirname(Yii::$app->basePath) . '/common' , 'file://~/path/to/your/common', $filePath);
+    $filePath = str_replace(Yii::$app->vendorPath, 'file://~/path/to/your/vendor', $filePath);
+    return strtr('<a href="phpstorm://open?url={file}&line={line}">{file}:{line}</a>', ['{file}' => $filePath]);
 },
 ```

@@ -8,6 +8,7 @@
 namespace craft\elements\db;
 
 use craft\db\Query;
+use craft\db\Table;
 use craft\elements\Tag;
 use craft\helpers\Db;
 use craft\models\TagGroup;
@@ -22,11 +23,24 @@ use yii\db\Connection;
  * @method Tag|array|null nth(int $n, Connection $db = null)
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @since 3.0
+ * @supports-site-params
+ * @supports-title-param
+ * @supports-uri-param
+ * @replace {element} tag
+ * @replace {elements} tags
+ * @replace {twig-method} craft.tags()
+ * @replace {myElement} myTag
+ * @replace {element-class} \craft\elements\Tag
  */
 class TagQuery extends ElementQuery
 {
     // Properties
     // =========================================================================
+
+    /**
+     * @inheritdoc
+     */
+    protected $defaultOrderBy = ['content.title' => SORT_ASC];
 
     // General parameters
     // -------------------------------------------------------------------------
@@ -57,19 +71,6 @@ class TagQuery extends ElementQuery
     /**
      * @inheritdoc
      */
-    public function __construct($elementType, array $config = [])
-    {
-        // Default orderBy
-        if (!isset($config['orderBy'])) {
-            $config['orderBy'] = 'content.title';
-        }
-
-        parent::__construct($elementType, $config);
-    }
-
-    /**
-     * @inheritdoc
-     */
     public function __set($name, $value)
     {
         if ($name === 'group') {
@@ -80,7 +81,33 @@ class TagQuery extends ElementQuery
     }
 
     /**
-     * Sets the [[$groupId]] property based on a given tag group(s)’s handle(s).
+     * Narrows the query results based on the tag groups the tags belong to.
+     *
+     * Possible values include:
+     *
+     * | Value | Fetches {elements}…
+     * | - | -
+     * | `'foo'` | in a group with a handle of `foo`.
+     * | `'not foo'` | not in a group with a handle of `foo`.
+     * | `['foo', 'bar']` | in a group with a handle of `foo` or `bar`.
+     * | `['not', 'foo', 'bar']` | not in a group with a handle of `foo` or `bar`.
+     * | a [[TagGroup|TagGroup]] object | in a group represented by the object.
+     *
+     * ---
+     *
+     * ```twig
+     * {# Fetch {elements} in the Foo group #}
+     * {% set {elements-var} = {twig-method}
+     *     .group('foo')
+     *     .all() %}
+     * ```
+     *
+     * ```php
+     * // Fetch {elements} in the Foo group
+     * ${elements-var} = {php-method}
+     *     ->group('foo')
+     *     ->all();
+     * ```
      *
      * @param string|string[]|TagGroup|null $value The property value
      * @return static self reference
@@ -93,7 +120,7 @@ class TagQuery extends ElementQuery
         } else if ($value !== null) {
             $this->groupId = (new Query())
                 ->select(['id'])
-                ->from(['{{%taggroups}}'])
+                ->from([Table::TAGGROUPS])
                 ->where(Db::parseParam('handle', $value))
                 ->column();
         } else {
@@ -104,7 +131,32 @@ class TagQuery extends ElementQuery
     }
 
     /**
-     * Sets the [[$groupId]] property.
+     * Narrows the query results based on the tag groups the tags belong to, per the groups’ IDs.
+     *
+     * Possible values include:
+     *
+     * | Value | Fetches {elements}…
+     * | - | -
+     * | `1` | in a group with an ID of 1.
+     * | `'not 1'` | not in a group with an ID of 1.
+     * | `[1, 2]` | in a group with an ID of 1 or 2.
+     * | `['not', 1, 2]` | not in a group with an ID of 1 or 2.
+     *
+     * ---
+     *
+     * ```twig
+     * {# Fetch {elements} in the group with an ID of 1 #}
+     * {% set {elements-var} = {twig-method}
+     *     .groupId(1)
+     *     .all() %}
+     * ```
+     *
+     * ```php
+     * // Fetch {elements} in the group with an ID of 1
+     * ${elements-var} = {php-method}
+     *     ->groupId(1)
+     *     ->all();
+     * ```
      *
      * @param int|int[]|null $value The property value
      * @return static self reference

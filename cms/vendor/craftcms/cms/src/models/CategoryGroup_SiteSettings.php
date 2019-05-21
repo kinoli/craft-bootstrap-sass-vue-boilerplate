@@ -120,8 +120,8 @@ class CategoryGroup_SiteSettings extends Model
     public function attributeLabels()
     {
         return [
-            'uriFormat' => Craft::t('app', 'URI Format'),
             'template' => Craft::t('app', 'Template'),
+            'uriFormat' => Craft::t('app', 'URI Format'),
         ];
     }
 
@@ -130,12 +130,11 @@ class CategoryGroup_SiteSettings extends Model
      */
     public function rules()
     {
-        $rules = [
-            [['id', 'groupId', 'siteId'], 'number', 'integerOnly' => true],
-            [['siteId'], SiteIdValidator::class],
-            [['template'], 'string', 'max' => 500],
-            [['uriFormat'], UriFormatValidator::class]
-        ];
+        $rules = parent::rules();
+        $rules[] = [['id', 'groupId', 'siteId'], 'number', 'integerOnly' => true];
+        $rules[] = [['siteId'], SiteIdValidator::class];
+        $rules[] = [['template'], 'string', 'max' => 500];
+        $rules[] = [['uriFormat'], UriFormatValidator::class];
 
         if ($this->hasUrls) {
             $rules[] = [['uriFormat'], 'required'];

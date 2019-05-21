@@ -9,6 +9,7 @@ namespace craft\base;
 
 use craft\elements\db\ElementQueryInterface;
 use craft\models\FieldLayout;
+use Twig\Markup;
 
 
 /**
@@ -26,7 +27,7 @@ interface ElementInterface extends ComponentInterface
     /**
      * Returns the handle that should be used to refer to this element type from reference tags.
      *
-     * @return string|null The reference handle, or null if the elemnet type doesn’t support reference tags
+     * @return string|null The reference handle, or null if the element type doesn’t support reference tags
      */
     public static function refHandle();
 
@@ -214,6 +215,7 @@ interface ElementInterface extends ComponentInterface
      * - **`key`** – The source’s key. This is the string that will be passed into the $source argument of [[actions()]],
      *   [[indexHtml()]], and [[defaultTableAttributes()]].
      * - **`label`** – The human-facing label of the source.
+     * - **`badgeCount`** – The badge count that should be displayed alongside the label. (Optional)
      * - **`sites`** – An array of site IDs that the source should be shown for, on multi-site element indexes. (Optional;
      *   by default the source will be shown for all sites.)
      * - **`criteria`** – An array of element criteria parameters that the source should use when the source is selected.
@@ -227,7 +229,7 @@ interface ElementInterface extends ComponentInterface
      *   [[getThumbUrl()]] method to define your elements’ thumb URL.) (Optional)
      * - **`structureId`** – The ID of the Structure that contains the elements in this source. If set, Structure View
      *   will be available to this source. (Optional)
-     * - **`newChildUrl`** – The URL that should be loaded when a usel select’s the “New child” menu option on an
+     * - **`newChildUrl`** – The URL that should be loaded when a user selects the “New child” menu option on an
      *   element in this source while it is in Structure View. (Optional)
      * - **`nested`** – An array of sources that are nested within this one. Each nested source can have the same keys
      *   as top-level sources.
@@ -385,7 +387,7 @@ interface ElementInterface extends ComponentInterface
      * Returns the sites this element is associated with.
      *
      * The function can either return an array of site IDs, or an array of sub-arrays,
-     * each with the keys 'siteId' (int) and 'enabledByDefault' (bool).
+     * each with the keys `siteId` (int) and `enabledByDefault` (boolean).
      *
      * @return int[]|array
      */
@@ -427,7 +429,7 @@ interface ElementInterface extends ComponentInterface
     /**
      * Returns an anchor pre-filled with this element’s URL and title.
      *
-     * @return \Twig_Markup|null
+     * @return Markup|null
      */
     public function getLink();
 
@@ -803,6 +805,18 @@ interface ElementInterface extends ComponentInterface
      * Performs actions after an element is deleted.
      */
     public function afterDelete();
+
+    /**
+     * Performs actions before an element is restored.
+     *
+     * @return bool Whether the element should be restored
+     */
+    public function beforeRestore(): bool;
+
+    /**
+     * Performs actions after an element is restored.
+     */
+    public function afterRestore();
 
     /**
      * Performs actions before an element is moved within a structure.

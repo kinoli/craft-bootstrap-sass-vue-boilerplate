@@ -13,6 +13,7 @@ use craft\base\ElementInterface;
 use craft\base\Field;
 use craft\base\UtilityInterface;
 use craft\db\Query;
+use craft\db\Table;
 use craft\elements\Asset;
 use craft\errors\MigrationException;
 use craft\helpers\FileHelper;
@@ -96,7 +97,7 @@ class UtilitiesController extends Controller
      * View stack trace for a deprecator log entry.
      *
      * @return Response
-     * @throws ForbiddenHttpException if the user doesn't have access to the Deprecation Errors utility
+     * @throws ForbiddenHttpException if the user doesn't have access to the Deprecation Warnings utility
      */
     public function actionGetDeprecationErrorTracesModal(): Response
     {
@@ -118,7 +119,7 @@ class UtilitiesController extends Controller
      * Deletes all deprecation errors.
      *
      * @return Response
-     * @throws ForbiddenHttpException if the user doesn't have access to the Deprecation Errors utility
+     * @throws ForbiddenHttpException if the user doesn't have access to the Deprecation Warnings utility
      */
     public function actionDeleteAllDeprecationErrors(): Response
     {
@@ -137,7 +138,7 @@ class UtilitiesController extends Controller
      * Deletes a deprecation error.
      *
      * @return Response
-     * @throws ForbiddenHttpException if the user doesn't have access to the Deprecation Errors utility
+     * @throws ForbiddenHttpException if the user doesn't have access to the Deprecation Warnings utility
      */
     public function actionDeleteDeprecationError(): Response
     {
@@ -167,8 +168,13 @@ class UtilitiesController extends Controller
 
         // Initial request
         if (!empty($params['start'])) {
-            $batches = [];
+
             $sessionId = Craft::$app->getAssetIndexer()->getIndexingSessionId();
+
+            $response = [
+                'volumes' => [],
+                'sessionId' => $sessionId
+            ];
 
             // Selection of volumes or all volumes?
             if (is_array($params['volumes'])) {
@@ -197,39 +203,18 @@ class UtilitiesController extends Controller
                     $skippedFiles = $indexList['skippedFiles'];
                 }
 
-                $batch = [];
-
-                for ($i = 0; $i < $indexList['total']; $i++) {
-                    $batch[] = [
-                        'params' => [
-                            'sessionId' => $sessionId,
-                            'volumeId' => $volumeId,
-                            'total' => $indexList['total'],
-                            'process' => 1,
-                            'cacheImages' => $params['cacheImages']
-                        ]
-                    ];
-                }
-
-                $batches[] = $batch;
+                $response['volumes'][] = [
+                    'volumeId' => $volumeId,
+                    'total' => $indexList['total'],
+                ];
             }
-
-            $batches[] = [
-                [
-                    'params' => [
-                        'overview' => true,
-                        'sessionId' => $sessionId,
-                    ]
-                ]
-            ];
 
             Craft::$app->getSession()->set('assetsVolumesBeingIndexed', $volumeIds);
             Craft::$app->getSession()->set('assetsMissingFolders', $missingFolders);
             Craft::$app->getSession()->set('assetsSkippedFiles', $skippedFiles);
 
             return $this->asJson([
-                'batches' => $batches,
-                'total' => $grandTotal
+                'indexingData' => $response,
             ]);
         }
 
@@ -250,48 +235,34 @@ class UtilitiesController extends Controller
             $responseArray = [];
 
             if (!empty($missingFiles) || !empty($missingFolders) || !empty($skippedFiles)) {
-                $responseArray['confirm'] = $this->getView()->renderTemplate('assets/_missing_items',
-                    [
-                        'missingFiles' => $missingFiles,
-                        'missingFolders' => $missingFolders,
-                        'skippedFiles' => $skippedFiles
-                    ]);
-                $responseArray['params'] = ['finish' => 1];
+                return $this->asJson([
+                    'confirm' => $this->getView()->renderTemplate('assets/_missing_items', compact('missingFiles', 'missingFolders', 'skippedFiles')),
+                ]);
             }
 
             // Clean up stale indexing data (all sessions that have all recordIds set)
             $sessionsInProgress = (new Query())
                 ->select(['sessionId'])
-                ->from(['{{%assetindexdata}}'])
+                ->from([Table::ASSETINDEXDATA])
                 ->where(['recordId' => null])
                 ->groupBy(['sessionId'])
                 ->scalar();
 
             if (empty($sessionsInProgress)) {
                 Craft::$app->getDb()->createCommand()
-                    ->delete('{{%assetindexdata}}')
+                    ->delete(Table::ASSETINDEXDATA)
                     ->execute();
             } else {
                 Craft::$app->getDb()->createCommand()
                     ->delete(
-                        '{{%assetindexdata}}',
+                        Table::ASSETINDEXDATA,
                         ['not', ['sessionId' => $sessionsInProgress]])
                     ->execute();
-            }
-
-            if (!empty($responseArray)) {
-                return $this->asJson([
-                    'batches' => [
-                        [
-                            $responseArray
-                        ]
-                    ]
-                ]);
             }
         } else if (!empty($params['finish'])) {
             if (!empty($params['deleteAsset']) && is_array($params['deleteAsset'])) {
                 Craft::$app->getDb()->createCommand()
-                    ->delete('{{%assettransformindex}}', ['assetId' => $params['deleteAsset']])
+                    ->delete(Table::ASSETTRANSFORMINDEX, ['assetId' => $params['deleteAsset']])
                     ->execute();
 
                 /** @var Asset[] $assets */
@@ -309,13 +280,11 @@ class UtilitiesController extends Controller
             if (!empty($params['deleteFolder']) && is_array($params['deleteFolder'])) {
                 Craft::$app->getAssets()->deleteFoldersByIds($params['deleteFolder'], false);
             }
-
-            return $this->asJson([
-                'finished' => 1
-            ]);
         }
 
-        return $this->asJson([]);
+        return $this->asJson([
+            'finished' => 1
+        ]);
     }
 
     /**
@@ -477,13 +446,14 @@ class UtilitiesController extends Controller
         if (!empty($params['start'])) {
             // Truncate the searchindex table
             Craft::$app->getDb()->createCommand()
-                ->truncateTable('{{%searchindex}}')
+                ->truncateTable(Table::SEARCHINDEX)
                 ->execute();
 
             // Get all the element IDs ever
             $elements = (new Query())
                 ->select(['id', 'type'])
-                ->from(['{{%elements}}'])
+                ->from([Table::ELEMENTS])
+                ->where(['dateDeleted' => null])
                 ->all();
 
             $batch = [];
@@ -510,26 +480,30 @@ class UtilitiesController extends Controller
             ->id($params['id'])
             ->anyStatus();
 
+        $searchService = Craft::$app->getSearch();
+
         foreach ($siteIds as $siteId) {
             $query->siteId($siteId);
             $element = $query->one();
 
             if ($element) {
                 /** @var Element $element */
-                Craft::$app->getSearch()->indexElementAttributes($element);
+                $searchService->indexElementAttributes($element);
 
                 if ($class::hasContent() && ($fieldLayout = $element->getFieldLayout()) !== null) {
                     $keywords = [];
 
                     foreach ($fieldLayout->getFields() as $field) {
                         /** @var Field $field */
-                        // Set the keywords for the content's site
-                        $fieldValue = $element->getFieldValue($field->handle);
-                        $fieldSearchKeywords = $field->getSearchKeywords($fieldValue, $element);
-                        $keywords[$field->id] = $fieldSearchKeywords;
+                        if ($field->searchable) {
+                            // Set the keywords for the content's site
+                            $fieldValue = $element->getFieldValue($field->handle);
+                            $fieldSearchKeywords = $field->getSearchKeywords($fieldValue, $element);
+                            $keywords[$field->id] = $fieldSearchKeywords;
+                        }
                     }
 
-                    Craft::$app->getSearch()->indexElementFields($element->id, $siteId, $keywords);
+                    $searchService->indexElementFields($element->id, $siteId, $keywords);
                 }
             }
         }

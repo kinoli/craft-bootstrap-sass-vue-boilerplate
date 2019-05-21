@@ -153,14 +153,14 @@ Twig supports dynamic inheritance by using a variable as the base template:
 
     {% extends some_var %}
 
-If the variable evaluates to a ``Twig_Template`` or a ``Twig_TemplateWrapper``
+If the variable evaluates to a ``\Twig\Template`` or a ``\Twig\TemplateWrapper``
 instance, Twig will use it as the parent template::
 
     // {% extends layout %}
 
     $layout = $twig->load('some_layout_template.twig');
 
-    $twig->display('template.twig', array('layout' => $layout));
+    $twig->display('template.twig', ['layout' => $layout]);
 
 You can also provide a list of templates that are checked for existence. The
 first template that exists will be used as a parent:

@@ -10,6 +10,7 @@ namespace craft\elements\db;
 use Craft;
 use craft\db\Query;
 use craft\db\QueryAbortedException;
+use craft\db\Table;
 use craft\elements\User;
 use craft\helpers\Db;
 use craft\models\UserGroup;
@@ -24,11 +25,17 @@ use yii\db\Connection;
  * @method User|array|null nth(int $n, Connection $db = null)
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @since 3.0
+ * @supports-status-param
  */
 class UserQuery extends ElementQuery
 {
     // Properties
     // =========================================================================
+
+    /**
+     * @inheritdoc
+     */
+    protected $defaultOrderBy = ['users.username' => SORT_ASC];
 
     // General parameters
     // -------------------------------------------------------------------------
@@ -139,11 +146,6 @@ class UserQuery extends ElementQuery
      */
     public function __construct($elementType, array $config = [])
     {
-        // Default orderBy
-        if (!isset($config['orderBy'])) {
-            $config['orderBy'] = 'users.username';
-        }
-
         // Default status
         if (!isset($config['status'])) {
             $config['status'] = [User::STATUS_ACTIVE];
@@ -165,7 +167,23 @@ class UserQuery extends ElementQuery
     }
 
     /**
-     * Sets the [[$admin]] property.
+     * Narrows the query results to only users that have admin accounts.
+     *
+     * ---
+     *
+     * ```twig
+     * {# Fetch admins #}
+     * {% set {elements-var} = {twig-function}
+     *     .admin()
+     *     .all() %}
+     * ```
+     *
+     * ```php
+     * // Fetch admins
+     * ${elements-var} = {element-class}::find()
+     *     ->admin()
+     *     ->all();
+     * ```
      *
      * @param bool $value The property value (defaults to true)
      * @return static self reference
@@ -178,7 +196,25 @@ class UserQuery extends ElementQuery
     }
 
     /**
-     * Sets the [[$can]] property.
+     * Narrows the query results to only users that have a certain user permission, either directly on the user account or through one of their user groups.
+     *
+     * See [Users](https://docs.craftcms.com/v3/users.html) for a full list of available user permissions defined by Craft.
+     *
+     * ---
+     *
+     * ```twig
+     * {# Fetch users that can access the Control Panel #}
+     * {% set {elements-var} = {twig-function}
+     *     .can('accessCp')
+     *     .all() %}
+     * ```
+     *
+     * ```php
+     * // Fetch users that can access the Control Panel
+     * ${elements-var} = {element-class}::find()
+     *     ->can('accessCp')
+     *     ->all();
+     * ```
      *
      * @param string|int|null $value The property value
      * @return static self reference
@@ -191,7 +227,33 @@ class UserQuery extends ElementQuery
     }
 
     /**
-     * Sets the [[$groupId]] property based on a given tag group(s)’s handle(s).
+     * Narrows the query results based on the user group the users belong to.
+     *
+     * Possible values include:
+     *
+     * | Value | Fetches {elements}…
+     * | - | -
+     * | `'foo'` | in a group with a handle of `foo`.
+     * | `'not foo'` | not in a group with a handle of `foo`.
+     * | `['foo', 'bar']` | in a group with a handle of `foo` or `bar`.
+     * | `['not', 'foo', 'bar']` | not in a group with a handle of `foo` or `bar`.
+     * | a [[UserGroup|UserGroup]] object | in a group represented by the object.
+     *
+     * ---
+     *
+     * ```twig
+     * {# Fetch {elements} in the Foo user group #}
+     * {% set {elements-var} = {twig-method}
+     *     .group('foo')
+     *     .all() %}
+     * ```
+     *
+     * ```php
+     * // Fetch {elements} in the Foo user group
+     * ${elements-var} = {php-method}
+     *     ->group('foo')
+     *     ->all();
+     * ```
      *
      * @param string|string[]|UserGroup|null $value The property value
      * @return static self reference
@@ -204,7 +266,7 @@ class UserQuery extends ElementQuery
         } else if ($value !== null) {
             $this->groupId = (new Query())
                 ->select(['id'])
-                ->from(['{{%usergroups}}'])
+                ->from([Table::USERGROUPS])
                 ->where(Db::parseParam('handle', $value))
                 ->column();
         } else {
@@ -215,7 +277,32 @@ class UserQuery extends ElementQuery
     }
 
     /**
-     * Sets the [[$groupId]] property.
+     * Narrows the query results based on the user group the users belong to, per the groups’ IDs.
+     *
+     * Possible values include:
+     *
+     * | Value | Fetches {elements}…
+     * | - | -
+     * | `1` | in a group with an ID of 1.
+     * | `'not 1'` | not in a group with an ID of 1.
+     * | `[1, 2]` | in a group with an ID of 1 or 2.
+     * | `['not', 1, 2]` | not in a group with an ID of 1 or 2.
+     *
+     * ---
+     *
+     * ```twig
+     * {# Fetch {elements} in a group with an ID of 1 #}
+     * {% set {elements-var} = {twig-method}
+     *     .groupId(1)
+     *     .all() %}
+     * ```
+     *
+     * ```php
+     * // Fetch {elements} in a group with an ID of 1
+     * ${elements-var} = {php-method}
+     *     ->groupId(1)
+     *     ->all();
+     * ```
      *
      * @param int|int[]|null $value The property value
      * @return static self reference
@@ -228,7 +315,31 @@ class UserQuery extends ElementQuery
     }
 
     /**
-     * Sets the [[$email]] property.
+     * Narrows the query results based on the users’ email addresses.
+     *
+     * Possible values include:
+     *
+     * | Value | Fetches {elements}…
+     * | - | -
+     * | `'foo@bar.baz'` | with an email of `foo@bar.baz`.
+     * | `'not foo@bar.baz'` | not with an email of `foo@bar.baz`.
+     * | `'*@bar.baz'` | with an email that ends with `@bar.baz`.
+     *
+     * ---
+     *
+     * ```twig
+     * {# Fetch users with a .co.uk domain on their email address #}
+     * {% set {elements-var} = {twig-method}
+     *     .email('*.co.uk')
+     *     .all() %}
+     * ```
+     *
+     * ```php
+     * // Fetch users with a .co.uk domain on their email address
+     * ${elements-var} = {php-method}
+     *     ->email('*.co.uk')
+     *     ->all();
+     * ```
      *
      * @param string|string[]|null $value The property value
      * @return static self reference
@@ -241,7 +352,36 @@ class UserQuery extends ElementQuery
     }
 
     /**
-     * Sets the [[$username]] property.
+     * Narrows the query results based on the users’ usernames.
+     *
+     * Possible values include:
+     *
+     * | Value | Fetches {elements}…
+     * | - | -
+     * | `'foo'` | with a username of `foo`.
+     * | `'not foo'` | not with a username of `foo`.
+     *
+     * ---
+     *
+     * ```twig
+     * {# Get the requested username #}
+     * {% set requestedUsername = craft.app.request.getSegment(2) %}
+     *
+     * {# Fetch that user #}
+     * {% set {element-var} = {twig-method}
+     *     .username(requestedUsername|literal)
+     *     .one() %}
+     * ```
+     *
+     * ```php
+     * // Get the requested username
+     * $requestedUsername = \Craft::$app->request->getSegment(2);
+     *
+     * // Fetch that user
+     * ${element-var} = {php-method}
+     *     ->username(\craft\helpers\Db::escapeParam($requestedUsername))
+     *     ->one();
+     * ```
      *
      * @param string|string[]|null $value The property value
      * @return static self reference
@@ -254,7 +394,30 @@ class UserQuery extends ElementQuery
     }
 
     /**
-     * Sets the [[$firstName]] property.
+     * Narrows the query results based on the users’ first names.
+     *
+     * Possible values include:
+     *
+     * | Value | Fetches {elements}…
+     * | - | -
+     * | `'Jane'` | with a first name of `Jane`.
+     * | `'not Jane'` | not with a first name of `Jane`.
+     *
+     * ---
+     *
+     * ```twig
+     * {# Fetch all the Jane's #}
+     * {% set {elements-var} = {twig-method}
+     *     .firstName('Jane')
+     *     .all() %}
+     * ```
+     *
+     * ```php
+     * // Fetch all the Jane's
+     * ${elements-var} = {php-method}
+     *     ->firstName('Jane')
+     *     ->one();
+     * ```
      *
      * @param string|string[]|null $value The property value
      * @return static self reference
@@ -267,7 +430,30 @@ class UserQuery extends ElementQuery
     }
 
     /**
-     * Sets the [[$lastName]] property.
+     * Narrows the query results based on the users’ last names.
+     *
+     * Possible values include:
+     *
+     * | Value | Fetches {elements}…
+     * | - | -
+     * | `'Doe'` | with a last name of `Doe`.
+     * | `'not Doe'` | not with a last name of `Doe`.
+     *
+     * ---
+     *
+     * ```twig
+     * {# Fetch all the Doe's #}
+     * {% set {elements-var} = {twig-method}
+     *     .lastName('Doe')
+     *     .all() %}
+     * ```
+     *
+     * ```php
+     * // Fetch all the Doe's
+     * ${elements-var} = {php-method}
+     *     ->lastName('Doe')
+     *     ->one();
+     * ```
      *
      * @param string|string[]|null $value The property value
      * @return static self reference
@@ -280,7 +466,35 @@ class UserQuery extends ElementQuery
     }
 
     /**
-     * Sets the [[$lastLoginDate]] property.
+     * Narrows the query results based on the users’ last login dates.
+     *
+     * Possible values include:
+     *
+     * | Value | Fetches {elements}…
+     * | - | -
+     * | `'>= 2018-04-01'` | that last logged-in on or after 2018-04-01.
+     * | `'< 2018-05-01'` | that last logged-in before 2018-05-01
+     * | `['and', '>= 2018-04-04', '< 2018-05-01']` | that last logged-in between 2018-04-01 and 2018-05-01.
+     *
+     * ---
+     *
+     * ```twig
+     * {# Fetch {elements} that logged in recently #}
+     * {% set aWeekAgo = date('7 days ago')|atom %}
+     *
+     * {% set {elements-var} = {twig-method}
+     *     .lastLoginDate(">= #{aWeekAgo}")
+     *     .all() %}
+     * ```
+     *
+     * ```php
+     * // Fetch {elements} that logged in recently
+     * $aWeekAgo = (new \DateTime('7 days ago'))->format(\DateTime::ATOM);
+     *
+     * ${elements-var} = {php-method}
+     *     ->lastLoginDate(">= {$aWeekAgo}")
+     *     ->all();
+     * ```
      *
      * @param mixed $value The property value
      * @return static self reference
@@ -290,6 +504,40 @@ class UserQuery extends ElementQuery
     {
         $this->lastLoginDate = $value;
         return $this;
+    }
+
+    /**
+     * Narrows the query results based on the {elements}’ statuses.
+     *
+     * Possible values include:
+     *
+     * | Value | Fetches {elements}…
+     * | - | -
+     * | `'active'` _(default)_ | with active accounts.
+     * | `'suspended'` | with suspended accounts.
+     * | `'pending'` | with accounts that are still pending activation.
+     * | `'locked'` | with locked accounts (regardless of whether they’re active or suspended).
+     * | `['active', 'suspended']` | with active or suspended accounts.
+     *
+     * ---
+     *
+     * ```twig
+     * {# Fetch active and locked {elements} #}
+     * {% set {elements-var} = {twig-function}
+     *     .status(['active', 'locked'])
+     *     .all() %}
+     * ```
+     *
+     * ```php
+     * // Fetch active and locked {elements}
+     * ${elements-var} = {element-class}::find()
+     *     ->status(['active', 'locked'])
+     *     ->all();
+     * ```
+     */
+    public function status($value)
+    {
+        return parent::status($value);
     }
 
     // Protected Methods
@@ -344,7 +592,7 @@ class UserQuery extends ElementQuery
         if ($this->groupId) {
             $userIds = (new Query())
                 ->select(['userId'])
-                ->from(['{{%usergroups_users}}'])
+                ->from([Table::USERGROUPS_USERS])
                 ->where(Db::parseParam('groupId', $this->groupId))
                 ->column();
 
@@ -356,19 +604,19 @@ class UserQuery extends ElementQuery
         }
 
         if ($this->email) {
-            $this->subQuery->andWhere(Db::parseParam('users.email', $this->email));
+            $this->subQuery->andWhere(Db::parseParam('users.email', $this->email, '=', true));
         }
 
         if ($this->username) {
-            $this->subQuery->andWhere(Db::parseParam('users.username', $this->username));
+            $this->subQuery->andWhere(Db::parseParam('users.username', $this->username, '=', true));
         }
 
         if ($this->firstName) {
-            $this->subQuery->andWhere(Db::parseParam('users.firstName', $this->firstName));
+            $this->subQuery->andWhere(Db::parseParam('users.firstName', $this->firstName, '=', true));
         }
 
         if ($this->lastName) {
-            $this->subQuery->andWhere(Db::parseParam('users.lastName', $this->lastName));
+            $this->subQuery->andWhere(Db::parseParam('users.lastName', $this->lastName, '=', true));
         }
 
         if ($this->lastLoginDate) {
@@ -387,20 +635,21 @@ class UserQuery extends ElementQuery
             case User::STATUS_ACTIVE:
                 return [
                     'users.suspended' => false,
-                    'users.locked' => false,
-                    'users.pending' => false
+                    'users.pending' => false,
                 ];
             case User::STATUS_PENDING:
                 return [
-                    'users.pending' => true
+                    'users.suspended' => false,
+                    'users.pending' => true,
                 ];
             case User::STATUS_LOCKED:
                 return [
-                    'users.locked' => true
+                    'users.suspended' => false,
+                    'users.locked' => true,
                 ];
             case User::STATUS_SUSPENDED:
                 return [
-                    'users.suspended' => true
+                    'users.suspended' => true,
                 ];
             default:
                 return parent::statusCondition($status);
@@ -425,7 +674,7 @@ class UserQuery extends ElementQuery
             // Convert it to the actual permission ID, or false if the permission doesn't have an ID yet.
             $this->can = (new Query())
                 ->select(['id'])
-                ->from(['{{%userpermissions}}'])
+                ->from([Table::USERPERMISSIONS])
                 ->where(['name' => strtolower($this->can)])
                 ->scalar();
         }
@@ -435,7 +684,7 @@ class UserQuery extends ElementQuery
             // Get the users that have that permission directly
             $permittedUserIds = (new Query())
                 ->select(['userId'])
-                ->from(['{{%userpermissions_users}}'])
+                ->from([Table::USERPERMISSIONS_USERS])
                 ->where(['permissionId' => $this->can])
                 ->column();
 

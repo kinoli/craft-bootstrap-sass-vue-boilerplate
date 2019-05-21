@@ -19,8 +19,6 @@ use craft\helpers\Assets;
 use craft\helpers\Db;
 use craft\helpers\FileHelper;
 use craft\helpers\Image;
-use craft\helpers\Path as PathHelper;
-use craft\helpers\StringHelper;
 use craft\image\Raster;
 use craft\models\VolumeFolder;
 use craft\web\Controller;
@@ -28,7 +26,6 @@ use craft\web\UploadedFile;
 use yii\base\ErrorException;
 use yii\base\Exception;
 use yii\web\BadRequestHttpException;
-use yii\web\ForbiddenHttpException;
 use yii\web\HttpException;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -278,6 +275,7 @@ class AssetsController extends Controller
             return $this->asJson([
                 'success' => true,
                 'folderName' => $folderModel->name,
+                'folderUid' => $folderModel->uid,
                 'folderId' => $folderModel->id
             ]);
         } catch (AssetException $exception) {
@@ -561,10 +559,14 @@ class AssetsController extends Controller
             return $this->asErrorJson($exception->getMessage());
         }
 
+        $newFolderId = $folderIdChanges[$folderBeingMovedId] ?? null;
+        $newFolder = $assets->getFolderById($newFolderId);
+
         return $this->asJson([
             'success' => true,
             'transferList' => $fileTransferList,
-            'newFolderId' => $folderIdChanges[$folderBeingMovedId] ?? null
+            'newFolderUid' => $newFolder->uid,
+            'newFolderId' => $newFolderId
         ]);
     }
 
@@ -651,12 +653,14 @@ class AssetsController extends Controller
                 throw new BadRequestHttpException('The folder cannot be found');
             }
 
-            // Check the permissions to save in the resolved folder.
-            $this->_requirePermissionByAsset('saveAssetInVolume', $asset);
+            // Do what you want with your own photo.
+            if ($asset->id != Craft::$app->getUser()->getIdentity()->photoId) {
+                $this->_requirePermissionByAsset('saveAssetInVolume', $asset);
 
-            // If replacing, check for permissions to replace existing Asset files.
-            if ($replace) {
-                $this->_requirePermissionByAsset('deleteFilesAndFoldersInVolume', $asset);
+                // If replacing, check for permissions to replace existing Asset files.
+                if ($replace) {
+                    $this->_requirePermissionByAsset('deleteFilesAndFoldersInVolume', $asset);
+                }
             }
 
             // Verify parameter adequacy
@@ -685,7 +689,7 @@ class AssetsController extends Controller
 
             // TODO Is this hacky? It seems hacky.
             // We're rasterizing SVG, we have to make sure that the filename change does not get lost
-            if (StringHelper::toLowerCase($asset->getExtension()) === 'svg') {
+            if (strtolower($asset->getExtension()) === 'svg') {
                 unlink($imageCopy);
                 $imageCopy = preg_replace('/(svg)$/i', 'png', $imageCopy);
                 $asset->filename = preg_replace('/(svg)$/i', 'png', $asset->filename);
@@ -983,7 +987,7 @@ class AssetsController extends Controller
             }
         }
 
-        $this->_requirePermissionByVolumeId($permissionName, $asset->volumeId);
+        $this->_requirePermissionByVolumeId($permissionName, $asset->getVolume()->uid);
     }
 
     /**
@@ -1003,18 +1007,18 @@ class AssetsController extends Controller
             }
         }
 
-        $this->_requirePermissionByVolumeId($permissionName, $folder->volumeId);
+        $this->_requirePermissionByVolumeId($permissionName, $folder->getVolume()->uid);
     }
 
     /**
      * Require an Assets permissions.
      *
      * @param string $permissionName Name of the permission to require.
-     * @param int $volumeId The Volume id on which to require the permission.
+     * @param string $volumeUid The volume uid on which to require the permission.
      */
-    private function _requirePermissionByVolumeId(string $permissionName, int $volumeId)
+    private function _requirePermissionByVolumeId(string $permissionName, string $volumeUid)
     {
-        $this->requirePermission($permissionName . ':' . $volumeId);
+        $this->requirePermission($permissionName . ':' . $volumeUid);
     }
 
     /**

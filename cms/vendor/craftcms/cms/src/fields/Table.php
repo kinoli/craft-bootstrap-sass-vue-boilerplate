@@ -70,9 +70,7 @@ class Table extends Field
     /**
      * @var array The default row values that new elements should have
      */
-    public $defaults = [
-        'row1' => []
-    ];
+    public $defaults;
 
     /**
      * @var string The type of database column the field should have in the content table
@@ -98,7 +96,10 @@ class Table extends Field
         }
 
         if (!is_array($this->defaults)) {
-            $this->defaults = [];
+            $this->defaults = $this->id || $this->defaults === '' ? [] : [[]];
+        } else {
+            // Make sure the array is non-associative and with incrementing keys
+            $this->defaults = array_values($this->defaults);
         }
 
         // Convert default date cell values to ISO8601 strings
@@ -106,7 +107,9 @@ class Table extends Field
             foreach ($this->columns as $colId => $col) {
                 if (in_array($col['type'], ['date', 'time'], true)) {
                     foreach ($this->defaults as &$row) {
-                        $row[$colId] = DateTimeHelper::toIso8601($row[$colId]) ?: null;
+                        if (isset($row[$colId])) {
+                            $row[$colId] = DateTimeHelper::toIso8601($row[$colId]) ?: null;
+                        }
                     }
                 }
             }
@@ -122,7 +125,30 @@ class Table extends Field
         $rules[] = [['minRows'], 'compare', 'compareAttribute' => 'maxRows', 'operator' => '<=', 'type' => 'number', 'when' => [$this, 'hasMaxRows']];
         $rules[] = [['maxRows'], 'compare', 'compareAttribute' => 'minRows', 'operator' => '>=', 'type' => 'number', 'when' => [$this, 'hasMinRows']];
         $rules[] = [['minRows', 'maxRows'], 'integer', 'min' => 0];
+        $rules[] = [['columns'], 'validateColumns'];
         return $rules;
+    }
+
+    /**
+     * Validatse the column configs.
+     */
+    public function validateColumns()
+    {
+        $hasErrors = false;
+        foreach ($this->columns as &$col) {
+            if ($col['handle'] && preg_match('/^col\d+$/', $col['handle'])) {
+                $col['handle'] = [
+                    'value' => $col['handle'],
+                    'hasErrors' => true,
+                ];
+                $hasErrors = true;
+            }
+        }
+        if ($hasErrors) {
+            $this->addError('columns', Craft::t('app', 'Column handles can’t be in the format “{format}”.', [
+                'format' => 'colX',
+            ]));
+        }
     }
 
     /**
@@ -214,7 +240,8 @@ class Table extends Field
                 'cols' => $columnSettings,
                 'rows' => $this->columns,
                 'addRowLabel' => Craft::t('app', 'Add a column'),
-                'initJs' => false
+                'initJs' => false,
+                'errors' => $this->getErrors('columns'),
             ]
         ]);
 
@@ -282,7 +309,7 @@ class Table extends Field
     {
         if (is_string($value) && !empty($value)) {
             $value = Json::decodeIfJson($value);
-        } else if ($value === null && $this->isFresh($element) && is_array($this->defaults)) {
+        } else if ($value === null && $this->isFresh($element)) {
             $value = array_values($this->defaults);
         }
 
@@ -294,7 +321,7 @@ class Table extends Field
         foreach ($value as &$row) {
             foreach ($this->columns as $colId => $col) {
                 $row[$colId] = $this->_normalizeCellValue($col['type'], $row[$colId] ?? null);
-                if ($col['handle']) {
+                if ($col['handle'] && !isset($this->columns[$col['handle']])) {
                     $row[$col['handle']] = $row[$colId];
                 }
             }
@@ -421,22 +448,31 @@ class Table extends Field
         }
         unset($column);
 
+        if (!is_array($value)) {
+            $value = [];
+        }
+
         // Explicitly set each cell value to an array with a 'value' key
         $checkForErrors = $element && $element->hasErrors($this->handle);
-        if (is_array($value)) {
-            foreach ($value as &$row) {
-                foreach ($this->columns as $colId => $col) {
-                    if (isset($row[$colId])) {
-                        $hasErrors = $checkForErrors && !$this->_validateCellValue($col['type'], $row[$colId]);
-                        $row[$colId] = [
-                            'value' => $row[$colId],
-                            'hasErrors' => $hasErrors,
-                        ];
-                    }
+        foreach ($value as &$row) {
+            foreach ($this->columns as $colId => $col) {
+                if (isset($row[$colId])) {
+                    $hasErrors = $checkForErrors && !$this->_validateCellValue($col['type'], $row[$colId]);
+                    $row[$colId] = [
+                        'value' => $row[$colId],
+                        'hasErrors' => $hasErrors,
+                    ];
                 }
             }
         }
         unset($row);
+
+        // Make sure the value contains at least the minimum number of rows
+        if ($this->minRows) {
+            for ($i = count($value); $i < $this->minRows; $i++) {
+                $value[] = [];
+            }
+        }
 
         $view = Craft::$app->getView();
         $id = $view->formatInputId($this->handle);

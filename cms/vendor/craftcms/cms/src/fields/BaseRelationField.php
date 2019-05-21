@@ -14,9 +14,12 @@ use craft\base\ElementInterface;
 use craft\base\Field;
 use craft\base\PreviewableFieldInterface;
 use craft\db\Query;
+use craft\db\Table as TableName;
 use craft\elements\db\ElementQuery;
 use craft\elements\db\ElementQueryInterface;
+use craft\errors\SiteNotFoundException;
 use craft\helpers\ElementHelper;
+use craft\helpers\Html;
 use craft\helpers\StringHelper;
 use craft\queue\jobs\LocalizeRelations;
 use craft\validators\ArrayValidator;
@@ -87,7 +90,7 @@ abstract class BaseRelationField extends Field implements PreviewableFieldInterf
     public $source;
 
     /**
-     * @var int|null The site that this field should relate elements from
+     * @var string|null The site that this field should relate elements from
      */
     public $targetSiteId;
 
@@ -127,7 +130,7 @@ abstract class BaseRelationField extends Field implements PreviewableFieldInterf
     protected $allowLargeThumbsView = false;
 
     /**
-     * @var string Temlpate to use for settings rendering
+     * @var string Template to use for settings rendering
      */
     protected $settingsTemplate = '_components/fieldtypes/elementfieldsettings';
 
@@ -397,7 +400,9 @@ abstract class BaseRelationField extends Field implements PreviewableFieldInterf
             return '<p class="light">' . Craft::t('app', 'Nothing selected.') . '</p>';
         }
 
-        $html = '<div class="elementselect"><div class="elements">';
+        $view = Craft::$app->getView();
+        $id = $view->formatInputId($this->handle);
+        $html = "<div id='{$id}' class='elementselect'><div class='elements'>";
 
         foreach ($value as $relatedElement) {
             $html .= Craft::$app->getView()->renderTemplate('_elements/element', [
@@ -406,6 +411,12 @@ abstract class BaseRelationField extends Field implements PreviewableFieldInterf
         }
 
         $html .= '</div></div>';
+
+        $nsId = $view->namespaceInputId($id);
+        $js = <<<JS
+(new Craft.ElementThumbLoader()).load($('#{$nsId}'));
+JS;
+        $view->registerJs($js);
 
         return $html;
     }
@@ -448,7 +459,7 @@ abstract class BaseRelationField extends Field implements PreviewableFieldInterf
         // Return any relation data on these elements, defined with this field
         $map = (new Query())
             ->select(['sourceId as source', 'targetId as target'])
-            ->from(['{{%relations}}'])
+            ->from([TableName::RELATIONS])
             ->where([
                 'and',
                 [
@@ -551,7 +562,7 @@ abstract class BaseRelationField extends Field implements PreviewableFieldInterf
             // Make sure it's not a heading
             if (!isset($source['heading'])) {
                 $options[] = [
-                    'label' => $source['label'],
+                    'label' => Html::encode($source['label']),
                     'value' => $source['key']
                 ];
                 $optionNames[] = $source['label'];
@@ -578,7 +589,7 @@ abstract class BaseRelationField extends Field implements PreviewableFieldInterf
             return null;
         }
 
-        $type = StringHelper::toLowerCase(static::displayName());
+        $type = mb_strtolower(static::displayName());
         $showTargetSite = !empty($this->targetSiteId);
 
         $html = Craft::$app->getView()->renderTemplateMacro('_includes/forms', 'checkboxField',
@@ -597,7 +608,7 @@ abstract class BaseRelationField extends Field implements PreviewableFieldInterf
         foreach (Craft::$app->getSites()->getAllSites() as $site) {
             $siteOptions[] = [
                 'label' => Craft::t('site', $site->name),
-                'value' => $site->id
+                'value' => $site->uid
             ];
         }
 
@@ -686,6 +697,7 @@ abstract class BaseRelationField extends Field implements PreviewableFieldInterf
             'limit' => $this->allowLimit ? $this->limit : null,
             'viewMode' => $this->viewMode(),
             'selectionLabel' => $this->selectionLabel ? Craft::t('site', $this->selectionLabel) : static::defaultSelectionLabel(),
+            'sortable' => $this->sortable,
         ];
     }
 
@@ -727,7 +739,11 @@ abstract class BaseRelationField extends Field implements PreviewableFieldInterf
         /** @var Element|null $element */
         if (Craft::$app->getIsMultiSite()) {
             if ($this->targetSiteId) {
-                return $this->targetSiteId;
+                try {
+                    return Craft::$app->getSites()->getSiteByUid($this->targetSiteId)->id;
+                } catch (SiteNotFoundException $exception) {
+                    Craft::warning($exception->getMessage(), __METHOD__);
+                }
             }
 
             if ($element !== null) {

@@ -10,6 +10,7 @@ namespace craft\queue\jobs;
 use Craft;
 use craft\base\Field;
 use craft\base\FieldInterface;
+use craft\db\Table;
 use craft\fields\Matrix;
 use craft\queue\BaseJob;
 use yii\base\Exception;
@@ -51,14 +52,14 @@ class FindAndReplace extends BaseJob
     {
         // Find all the textual field columns
         $this->_textColumns = [
-            ['{{%content}}', 'title'],
+            [Table::CONTENT, 'title'],
         ];
 
         foreach (Craft::$app->getFields()->getAllFields() as $field) {
             if ($field instanceof Matrix) {
                 $this->_checkMatrixField($field);
             } else {
-                $this->_checkField($field, '{{%content}}', 'field_');
+                $this->_checkField($field, Table::CONTENT, 'field_');
             }
         }
 
@@ -133,19 +134,13 @@ class FindAndReplace extends BaseJob
      */
     private function _checkMatrixField(Matrix $matrixField)
     {
-        $table = Craft::$app->getMatrix()->getContentTableName($matrixField);
-
-        if ($table === false) {
-            throw new Exception('There was a problem getting the content table name.');
-        }
-
         $blockTypes = Craft::$app->getMatrix()->getBlockTypesByFieldId($matrixField->id);
 
         foreach ($blockTypes as $blockType) {
             $fieldColumnPrefix = 'field_' . $blockType->handle . '_';
 
             foreach ($blockType->getFields() as $field) {
-                $this->_checkField($field, $table, $fieldColumnPrefix);
+                $this->_checkField($field, $matrixField->contentTable, $fieldColumnPrefix);
             }
         }
     }

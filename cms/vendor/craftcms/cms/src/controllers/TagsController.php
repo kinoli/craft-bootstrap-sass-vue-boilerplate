@@ -69,7 +69,7 @@ class TagsController extends Controller
                 }
             }
 
-            $title = $tagGroup->name;
+            $title = trim($tagGroup->name) ?: Craft::t('app', 'Edit Tag Group');
         } else {
             if ($tagGroup === null) {
                 $tagGroup = new TagGroup();
@@ -186,11 +186,11 @@ class TagsController extends Controller
         $tags = Tag::find()
             ->groupId($tagGroupId)
             ->title(Db::escapeParam($search) . '*')
-            ->where(['not', ['elements.id' => $excludeIds]])
             ->all();
 
         $return = [];
         $exactMatches = [];
+        $excludes = [];
         $tagTitleLengths = [];
         $exactMatch = false;
 
@@ -201,9 +201,12 @@ class TagsController extends Controller
         }
 
         foreach ($tags as $tag) {
+            $exclude = in_array($tag->id, $excludeIds, false);
+
             $return[] = [
                 'id' => $tag->id,
-                'title' => $tag->title
+                'title' => $tag->title,
+                'exclude' => $exclude,
             ];
 
             $tagTitleLengths[] = StringHelper::length($tag->title);
@@ -220,9 +223,11 @@ class TagsController extends Controller
             } else {
                 $exactMatches[] = 0;
             }
+
+            $excludes[] = $exclude ? 1 : 0;
         }
 
-        array_multisort($exactMatches, SORT_DESC, $tagTitleLengths, $return);
+        array_multisort($excludes, SORT_ASC, $exactMatches, SORT_DESC, $tagTitleLengths, $return);
 
         return $this->asJson([
             'tags' => $return,

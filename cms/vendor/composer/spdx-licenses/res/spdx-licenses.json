@@ -1,7 +1,7 @@
 {
     "0BSD": [
         "BSD Zero Clause License",
-        false,
+        true,
         false
     ],
     "AAL": [
@@ -519,6 +519,16 @@
         false,
         false
     ],
+    "CERN-OHL-1.1": [
+        "CERN Open Hardware License v1.1",
+        false,
+        false
+    ],
+    "CERN-OHL-1.2": [
+        "CERN Open Hardware Licence v1.2",
+        false,
+        false
+    ],
     "ClArtistic": [
         "Clarified Artistic License",
         false,
@@ -541,6 +551,16 @@
     ],
     "Condor-1.1": [
         "Condor Public License v1.1",
+        false,
+        false
+    ],
+    "copyleft-next-0.3.0": [
+        "copyleft-next 0.3.0",
+        false,
+        false
+    ],
+    "copyleft-next-0.3.1": [
+        "copyleft-next 0.3.1",
         false,
         false
     ],
@@ -902,6 +922,11 @@
     "HPND": [
         "Historical Permission Notice and Disclaimer",
         true,
+        false
+    ],
+    "HPND-sell-variant": [
+        "Historical Permission Notice and Disclaimer - sell variant",
+        false,
         false
     ],
     "IBM-pibs": [
@@ -1339,6 +1364,11 @@
         false,
         false
     ],
+    "ODC-By-1.0": [
+        "Open Data Commons Attribution License v1.0",
+        false,
+        false
+    ],
     "OFL-1.0": [
         "SIL Open Font License 1.0",
         false,
@@ -1347,6 +1377,21 @@
     "OFL-1.1": [
         "SIL Open Font License 1.1",
         true,
+        false
+    ],
+    "OGL-UK-1.0": [
+        "Open Government Licence v1.0",
+        false,
+        false
+    ],
+    "OGL-UK-2.0": [
+        "Open Government Licence v2.0",
+        false,
+        false
+    ],
+    "OGL-UK-3.0": [
+        "Open Government Licence v3.0",
+        false,
         false
     ],
     "OGTSL": [
@@ -1589,6 +1634,11 @@
         false,
         false
     ],
+    "Sendmail-8.23": [
+        "Sendmail License 8.23",
+        false,
+        false
+    ],
     "SGI-B-1.0": [
         "SGI Free Software License B v1.0",
         false,
@@ -1674,6 +1724,11 @@
         false,
         false
     ],
+    "TAPR-OHL-1.0": [
+        "TAPR Open Hardware License v1.0",
+        false,
+        false
+    ],
     "TCL": [
         "TCL/TK License",
         false,
@@ -1696,6 +1751,16 @@
     ],
     "TOSL": [
         "Trusster Open Source License",
+        false,
+        false
+    ],
+    "TU-Berlin-1.0": [
+        "Technische Universitaet Berlin License 1.0",
+        false,
+        false
+    ],
+    "TU-Berlin-2.0": [
+        "Technische Universitaet Berlin License 2.0",
         false,
         false
     ],

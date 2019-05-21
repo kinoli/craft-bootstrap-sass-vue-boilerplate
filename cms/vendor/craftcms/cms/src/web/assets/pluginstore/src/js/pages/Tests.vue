@@ -1,6 +1,5 @@
 <template>
     <div>
-
         <h2>Translations</h2>
         <p>{{ somePrice|currency }} per year for updates</p>
         <p>{{ "{price} per year for updates"|t('app', { price: $root.$options.filters.currency(somePrice) }) }}</p>
@@ -19,10 +18,12 @@
             </div>
         </div>
     </div>
-
 </template>
 
 <script>
+    /* global Craft */
+    /* global Garnish */
+
     export default {
         data() {
             return {
@@ -35,15 +36,6 @@
             craftTranslation() {
                 return Craft.t('app', 'Go to {link}', {link: '<a href="#">test</a>'})
             },
-        },
-
-        created() {
-            this.$root.crumbs = [
-                {
-                    label: this.$options.filters.t("Plugin Store", 'app'),
-                    path: '/',
-                }
-            ]
         },
 
         mounted() {

@@ -432,8 +432,16 @@ class RequirementsChecker
     function iniSetRequirement()
     {
         $oldValue = ini_get('memory_limit');
+
+        $setValue = '442M'; // A random PHP memory limit value.
+        if ($oldValue !== '-1'){
+            // When the old value is not equal to '-1', add 1MB to the limit set at the moment.
+            $bytes = $this->getByteSize($oldValue) + $this->getByteSize('1M');
+            $setValue = sprintf('%sM', $bytes / (1024 * 1024));
+        }
+
         set_error_handler(array($this, 'muteErrorHandler'));
-        $result = ini_set('memory_limit', '442M');
+        $result = ini_set('memory_limit', $setValue);
         $newValue = ini_get('memory_limit');
         ini_set('memory_limit', $oldValue);
         restore_error_handler();
@@ -443,20 +451,20 @@ class RequirementsChecker
         // ini_set can return false or an empty string depending on your php version / FastCGI.
         // If ini_set has been disabled in php.ini, the value will be null because of our muted error handler
         if ($result === null) {
-            $memo = 'It looks like <a target="_blank" href="http://php.net/manual/en/function.ini-set.php">ini_set</a> has been disabled in your <code>php.ini</code> file. Craft requires that to operate.';
+            $memo = 'It looks like <a rel="noopener" target="_blank" href="http://php.net/manual/en/function.ini-set.php">ini_set</a> has been disabled in your <code>php.ini</code> file. Craft requires that to operate.';
             $condition = false;
         }
 
         // ini_set can return false or an empty string or the current value of memory_limit depending on your php
         // version and FastCGI. Regard, calling it didn't work, but there was no error.
         else if ($result === false || $result === '' || $result === $newValue) {
-            $memo = 'It appears calls to <a target="_blank" href="http://php.net/manual/en/function.ini-set.php">ini_set</a> are not working for Craft. You may need to increase some settings in your php.ini file such as <a target="_blank" href="http://php.net/manual/en/ini.core.php#ini.memory-limit">memory_limit</a> and <a target="_blank" href="http://php.net/manual/en/info.configuration.php#ini.max-execution-time">max_execution_time</a> for long running operations like updating and asset transformations.';
+            $memo = 'It appears calls to <a rel="noopener" target="_blank" href="http://php.net/manual/en/function.ini-set.php">ini_set</a> are not working for Craft. You may need to increase some settings in your php.ini file such as <a rel="noopener" target="_blank" href="http://php.net/manual/en/ini.core.php#ini.memory-limit">memory_limit</a> and <a rel="noopener" target="_blank" href="http://php.net/manual/en/info.configuration.php#ini.max-execution-time">max_execution_time</a> for long running operations like updating and asset transformations.';
 
             // Set mandatory to false here so it's not a "fatal" error, but will be treated as a warning.
             $mandatory = false;
             $condition = false;
         } else {
-            $memo = 'Calls to <a target="_blank" href="http://php.net/manual/en/function.ini-set.php">ini_set</a> are working correctly.';
+            $memo = 'Calls to <a rel="noopener" target="_blank" href="http://php.net/manual/en/function.ini-set.php">ini_set</a> are working correctly.';
             $condition = true;
         }
 
@@ -478,13 +486,33 @@ class RequirementsChecker
         $memoryLimit = ini_get('memory_limit');
         $bytes = $this->getByteSize($memoryLimit);
 
-        $memoLimit = $memoryLimit . ($memoryLimit === -1 ? ' (no limit)' : '');
-        $memo = "Craft requires a minimum PHP memory limit of 32M, and at least 256M is recommended. The memory_limit directive in php.ini is currently set to {$memoLimit}.";
+        $humanLimit = $memoryLimit . ($memoryLimit === -1 ? ' (no limit)' : '');
+        $memo = "Craft requires a minimum PHP memory limit of 256M. The memory_limit directive in php.ini is currently set to {$humanLimit}.";
 
         return array(
             'name' => 'Memory Limit',
             'mandatory' => false,
             'condition' => $bytes === -1 || $bytes >= 268435456,
+            'memo' => $memo,
+        );
+    }
+
+    /**
+     * @return array
+     *
+     * @see http://php.net/manual/en/info.configuration.php#ini.max-execution-time
+     */
+    function maxExecutionTimeRequirement()
+    {
+        $maxExecutionTime = (int)trim(ini_get('max_execution_time'));
+
+        $humanTime = $maxExecutionTime . ($maxExecutionTime === 0 ? ' (no limit)' : '');
+        $memo = "Craft requires a minimum PHP max execution time of 120 seconds. The max_execution_time directive in php.ini is currently set to {$humanTime}.";
+
+        return array(
+            'name' => 'Max Execution Time',
+            'mandatory' => false,
+            'condition' => $maxExecutionTime === 0 || $maxExecutionTime >= 120,
             'memo' => $memo,
         );
     }

@@ -224,7 +224,7 @@ class FieldsController extends Controller
         ];
 
         if ($fieldId !== null) {
-            $title = $field->name;
+            $title = trim($field->name) ?: Craft::t('app', 'Edit Field');
         } else {
             $title = Craft::t('app', 'Create a new field');
         }
@@ -264,6 +264,7 @@ class FieldsController extends Controller
             'name' => $request->getBodyParam('name'),
             'handle' => $request->getBodyParam('handle'),
             'instructions' => $request->getBodyParam('instructions'),
+            'searchable' => (bool)$request->getBodyParam('searchable', true),
             'translationMethod' => $request->getBodyParam('translationMethod', Field::TRANSLATION_METHOD_NONE),
             'translationKeyFormat' => $request->getBodyParam('translationKeyFormat'),
             'settings' => $request->getBodyParam('types.' . $type),

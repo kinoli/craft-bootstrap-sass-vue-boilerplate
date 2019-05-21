@@ -1,5 +1,23 @@
-Changelog
-=========
+# Changelog for Craft CMS Server Check
+
+## 1.1.7 - 2019-01-31
+
+### Added
+- Added a new `max_execution_time` check.
+
+### Changed
+- External links now have `rel="noopener"`. ([#9](https://github.com/craftcms/server-check/pull/9))
+- The `memory_limit` check now adds 1MB to the current value if not set to `-1`. ([#10](https://github.com/craftcms/server-check/pull/10))
+
+## 1.1.6 - 2018-08-17
+
+### Changed
+- The `ctype` extension is now required because of Yii 2.x.
+
+## 1.1.5 - 2018-08-14
+
+### Changed
+- The `iconv` extension is now required because of Twig 2.0.
 
 ## 1.1.4 - 2018-07-25
 

@@ -13,10 +13,12 @@ use craft\base\ElementInterface;
 use craft\base\Field;
 use craft\config\DbConfig;
 use craft\db\Query;
+use craft\db\Table;
 use craft\events\SearchEvent;
 use craft\helpers\Db;
 use craft\helpers\Search as SearchHelper;
 use craft\helpers\StringHelper;
+use craft\models\Site;
 use craft\search\SearchQuery;
 use craft\search\SearchQueryTerm;
 use craft\search\SearchQueryTermGroup;
@@ -197,7 +199,7 @@ class Search extends Component
         }
 
         // Begin creating SQL
-        $sql = sprintf('SELECT * FROM %s WHERE %s', Craft::$app->getDb()->quoteTableName('{{%searchindex}}'), $where);
+        $sql = sprintf('SELECT * FROM %s WHERE %s', Craft::$app->getDb()->quoteTableName(Table::SEARCHINDEX), $where);
 
         // Append elementIds to QSL
         if (!empty($elementIds)) {
@@ -246,7 +248,7 @@ class Search extends Component
 
         $elementIds = array_unique($elementIds);
 
-        // Fire a 'beforeSearch' event
+        // Fire an 'afterSearch' event
         if ($this->hasEventHandlers(self::EVENT_AFTER_SEARCH)) {
             $this->trigger(self::EVENT_AFTER_SEARCH, new SearchEvent([
                 'elementIds' => $elementIds,
@@ -267,26 +269,43 @@ class Search extends Component
      * @param int $elementId
      * @param string $attribute
      * @param string $fieldId
-     * @param int|null $siteId
+     * @param int $siteId
      * @param string $dirtyKeywords
      * @throws \craft\errors\SiteNotFoundException
      */
-    private function _indexElementKeywords(int $elementId, string $attribute, string $fieldId, int $siteId = null, string $dirtyKeywords)
+    private function _indexElementKeywords(int $elementId, string $attribute, string $fieldId, int $siteId, string $dirtyKeywords)
     {
-        $attribute = StringHelper::toLowerCase($attribute);
-        $driver = Craft::$app->getDb()->getDriverName();
+        $attribute = strtolower($attribute);
 
-        if ($siteId !== null) {
-            $site = Craft::$app->getSites()->getSiteById($siteId);
-        } else {
-            $site = Craft::$app->getSites()->getPrimarySite();
+        // Acquire a lock for this element/attribute/field ID/site ID
+        $mutex = Craft::$app->getMutex();
+        $lockKey = "searchindex:{$elementId}:{$attribute}:{$fieldId}:{$siteId}";
+
+        if (!$mutex->acquire($lockKey)) {
+            // Not worth waiting around; for all we know the other process has newer search attributes anyway
+            return;
         }
+
+        // Drop all current rows for this element/attribute/site ID
+        $db = Craft::$app->getDb();
+        $db->createCommand()
+            ->delete(Table::SEARCHINDEX, [
+                'elementId' => $elementId,
+                'attribute' => $attribute,
+                'fieldId' => $fieldId,
+                'siteId' => $siteId,
+            ])
+            ->execute();
+
+        $driver = $db->getDriverName();
+        /** @var Site $site */
+        $site = Craft::$app->getSites()->getSiteById($siteId);
 
         // Clean 'em up
         $cleanKeywords = SearchHelper::normalizeKeywords($dirtyKeywords, [], true, $site->language);
 
         // Save 'em
-        $keyColumns = [
+        $columns = [
             'elementId' => $elementId,
             'attribute' => $attribute,
             'fieldId' => $fieldId,
@@ -308,21 +327,19 @@ class Search extends Component
             $cleanKeywords = $this->_truncateSearchIndexKeywords($cleanKeywords, $maxSize);
         }
 
-        $keywordColumns = ['keywords' => $cleanKeywords];
+        $columns['keywords'] = $cleanKeywords;
 
         if ($driver === DbConfig::DRIVER_PGSQL) {
-            $keywordColumns['keywords_vector'] = $cleanKeywords;
+            $columns['keywords_vector'] = $cleanKeywords;
         }
 
         // Insert/update the row in searchindex
-        Craft::$app->getDb()->createCommand()
-            ->upsert(
-                '{{%searchindex}}',
-                $keyColumns,
-                $keywordColumns,
-                [],
-                false)
+        $db->createCommand()
+            ->insert(Table::SEARCHINDEX, $columns, false)
             ->execute();
+
+        // Release the lock
+        $mutex->release($lockKey);
     }
 
     /**
@@ -563,7 +580,17 @@ class Search extends Component
 
                         // Add quotes for exact match
                         if ($isMysql && StringHelper::contains($keywords, ' ')) {
-                            $keywords = '"' . $keywords . '"';
+                            if (StringHelper::first($keywords, 1) === '*') {
+                                $keywords = StringHelper::insert($keywords, '"', 1);
+                            } else {
+                                $keywords = '"' . $keywords;
+                            }
+
+                            if (StringHelper::last($keywords, 1) === '*') {
+                                $keywords = StringHelper::insert($keywords, '"', StringHelper::length($keywords) - 1);
+                            } else {
+                                $keywords .= '"';
+                            }
                         }
 
                         // Determine prefix for the full-text keyword
@@ -688,6 +715,12 @@ class Search extends Component
                     $val[$key] = $temp;
                 }
             }
+        } else {
+            // If where here, it's a single string with punctuation that's been stripped out (i.e. "multi-site").
+            // We can assume "and".
+            if (StringHelper::contains($val, ' ')) {
+                $val = StringHelper::replace($val, ' ', ' & ');
+            }
         }
 
         return sprintf("%s @@ '%s'::tsquery", Craft::$app->getDb()->quoteColumnName('keywords_vector'), (is_array($val) ? implode($glue, $val) : $val));
@@ -704,7 +737,7 @@ class Search extends Component
     {
         $query = (new Query())
             ->select(['elementId'])
-            ->from(['{{%searchindex}}'])
+            ->from([Table::SEARCHINDEX])
             ->where($where);
 
         if ($siteId !== null) {

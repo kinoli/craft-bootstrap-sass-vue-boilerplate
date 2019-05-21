@@ -15,9 +15,9 @@ use craft\helpers\StringHelper;
 use craft\models\Site;
 use craft\services\Sites;
 use yii\base\InvalidConfigException;
+use yii\db\Exception as DbException;
 use yii\web\BadRequestHttpException;
 use yii\web\NotFoundHttpException;
-use yii\db\Exception as DbException;
 
 /** @noinspection ClassOverridesFieldOfSuperClassInspection */
 
@@ -52,11 +52,17 @@ class Request extends \yii\web\Request
      */
     public $ipHeaders = [
         'Client-IP',
+        'X-Forwarded-For',
         'X-Forwarded',
         'X-Cluster-Client-IP',
         'Forwarded-For',
         'Forwarded',
     ];
+
+    /**
+     * @param int The highest page number that Craft should accept.
+     */
+    public $maxPageNum = 100000;
 
     /**
      * @var
@@ -104,6 +110,11 @@ class Request extends \yii\web\Request
     private $_actionSegments;
 
     /**
+     * @var bool
+     */
+    private $_isLivePreview = false;
+
+    /**
      * @var bool|null
      */
     private $_isMobileBrowser;
@@ -147,9 +158,11 @@ class Request extends \yii\web\Request
         // in case a site's base URL requires @web, and so we can include the host info in @web
         if (Craft::getRootAlias('@webroot') === false) {
             Craft::setAlias('@webroot', dirname($this->getScriptFile()));
+            $this->isWebrootAliasSetDynamically = true;
         }
         if (Craft::getRootAlias('@web') === false) {
             Craft::setAlias('@web', $this->getHostInfo() . $this->getBaseUrl());
+            $this->isWebAliasSetDynamically = true;
         }
 
         $generalConfig = Craft::$app->getConfig()->getGeneral();
@@ -169,7 +182,7 @@ class Request extends \yii\web\Request
 
             // If the requested URI begins with the current site's base URL path,
             // make sure that our internal path doesn't include those segments
-            if ($site->baseUrl && ($siteBasePath = parse_url(Craft::getAlias($site->baseUrl), PHP_URL_PATH)) !== null) {
+            if ($site->baseUrl && ($siteBasePath = parse_url($site->getBaseUrl(), PHP_URL_PATH)) !== null) {
                 $siteBasePath = $this->_normalizePath($siteBasePath);
                 $baseUrl = $this->_normalizePath($this->getBaseUrl());
                 $fullUri = $baseUrl . ($baseUrl && $path ? '/' : '') . $path;
@@ -231,6 +244,8 @@ class Request extends \yii\web\Request
                 $this->_segments = $this->_segments($newPath);
             }
         }
+
+        $this->_pageNum = min($this->_pageNum, $this->maxPageNum);
 
         // Now that we've chopped off the admin/page segments, set the path
         $this->_path = implode('/', $this->_segments);
@@ -373,7 +388,9 @@ class Request extends \yii\web\Request
      */
     public function getToken()
     {
-        return $this->getQueryParam(Craft::$app->getConfig()->getGeneral()->tokenParam);
+        $param = Craft::$app->getConfig()->getGeneral()->tokenParam;
+        return $this->getQueryParam($param)
+            ?? $this->getHeaders()->get('X-Craft-Token');
     }
 
     /**
@@ -454,11 +471,17 @@ class Request extends \yii\web\Request
      */
     public function getIsLivePreview(): bool
     {
-        return (
-            $this->getIsSiteRequest() &&
-            $this->getIsActionRequest() &&
-            $this->getBodyParam('livePreview')
-        );
+        return $this->_isLivePreview;
+    }
+
+    /**
+     * Sets whether this is a Live Preview request.
+     *
+     * @param bool $isLivePreview
+     */
+    public function setIsLivePreview(bool $isLivePreview)
+    {
+        $this->_isLivePreview = $isLivePreview;
     }
 
     /**
@@ -1076,7 +1099,7 @@ class Request extends \yii\web\Request
                 continue;
             }
 
-            if (($parsed = parse_url(Craft::getAlias($site->baseUrl))) === false) {
+            if (($parsed = parse_url($site->getBaseUrl())) === false) {
                 Craft::warning('Unable to parse the site base URL: ' . $site->baseUrl);
                 continue;
             }
@@ -1149,8 +1172,8 @@ class Request extends \yii\web\Request
         $configService = Craft::$app->getConfig();
         $generalConfig = $configService->getGeneral();
 
-        // If there's a token in the query string, then that should take precedence over everything else
-        if (!$this->getQueryParam($generalConfig->tokenParam)) {
+        // If there's a token on the request, then that should take precedence over everything else
+        if ($this->getToken() === null) {
             $firstSegment = $this->getSegment(1);
 
             // Is this an action request?

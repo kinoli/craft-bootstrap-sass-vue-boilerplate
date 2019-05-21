@@ -10,6 +10,7 @@ namespace craft\elements;
 use Craft;
 use craft\base\Element;
 use craft\base\ElementInterface;
+use craft\db\Table;
 use craft\elements\db\ElementQueryInterface;
 use craft\elements\db\MatrixBlockQuery;
 use craft\fields\Matrix;
@@ -99,7 +100,7 @@ class MatrixBlock extends Element
         list($blockTypeHandle, $fieldHandle) = $handleParts;
 
         // Get the block type
-        $matrixFieldId = $sourceElements[0]->fieldId;
+        $matrixFieldId = ArrayHelper::firstValue($sourceElements)->fieldId;
         $blockTypes = ArrayHelper::index(Craft::$app->getMatrix()->getBlockTypesByFieldId($matrixFieldId), 'handle');
 
         if (!isset($blockTypes[$blockTypeHandle])) {
@@ -112,7 +113,7 @@ class MatrixBlock extends Element
         // Set the field context
         $contentService = Craft::$app->getContent();
         $originalFieldContext = $contentService->fieldContext;
-        $contentService->fieldContext = 'matrixBlockType:' . $blockType->id;
+        $contentService->fieldContext = 'matrixBlockType:' . $blockType->uid;
 
         $map = parent::eagerLoadingMap($sourceElements, $fieldHandle);
 
@@ -155,6 +156,12 @@ class MatrixBlock extends Element
     public $collapsed = false;
 
     /**
+     * @var bool Whether the block was deleted along with its owner
+     * @see beforeDelete()
+     */
+    public $deletedWithOwner = false;
+
+    /**
      * @var ElementInterface|false|null The owner element, or false if [[ownerId]] is invalid
      */
     private $_owner;
@@ -186,7 +193,6 @@ class MatrixBlock extends Element
         $rules = parent::rules();
         $rules[] = [['fieldId', 'ownerId', 'typeId', 'sortOrder'], 'number', 'integerOnly' => true];
         $rules[] = [['ownerSiteId'], SiteIdValidator::class];
-
         return $rules;
     }
 
@@ -202,13 +208,11 @@ class MatrixBlock extends Element
             return [$this->ownerSiteId];
         }
 
-        $owner = $this->getOwner();
-
-        if ($owner) {
+        if (($owner = $this->getOwner()) || $this->duplicateOf) {
             // Just send back an array of site IDs -- don't pass along enabledByDefault configs
             $siteIds = [];
 
-            foreach (ElementHelper::supportedSitesForElement($owner) as $siteInfo) {
+            foreach (ElementHelper::supportedSitesForElement($owner ?? $this->duplicateOf) as $siteInfo) {
                 $siteIds[] = $siteInfo['siteId'];
             }
 
@@ -288,7 +292,7 @@ class MatrixBlock extends Element
      */
     public function getContentTable(): string
     {
-        return Craft::$app->getMatrix()->getContentTableName($this->_getField());
+        return $this->_getField()->contentTable;
     }
 
     /**
@@ -306,7 +310,7 @@ class MatrixBlock extends Element
      */
     public function getFieldContext(): string
     {
-        return 'matrixBlockType:' . $this->typeId;
+        return 'matrixBlockType:' . $this->getType()->uid;
     }
 
     /**
@@ -393,6 +397,25 @@ class MatrixBlock extends Element
         $record->save(false);
 
         parent::afterSave($isNew);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function beforeDelete(): bool
+    {
+        if (!parent::beforeDelete()) {
+            return false;
+        }
+
+        // Update the block record
+        Craft::$app->getDb()->createCommand()
+            ->update(Table::MATRIXBLOCKS, [
+                'deletedWithOwner' => $this->deletedWithOwner,
+            ], ['id' => $this->id], [], false)
+            ->execute();
+
+        return true;
     }
 
     /**

@@ -81,7 +81,7 @@ class Cp
             // Domain mismatch?
             if ($licenseKeyStatus === LicenseKeyStatus::Mismatched) {
                 $licensedDomain = Craft::$app->getCache()->get('licensedDomain');
-                $domainLink = '<a href="http://' . $licensedDomain . '" target="_blank">' . $licensedDomain . '</a>';
+                $domainLink = '<a href="http://' . $licensedDomain . '" rel="noopener" target="_blank">' . $licensedDomain . '</a>';
 
                 if (defined('CRAFT_LICENSE_KEY')) {
                     $message = Craft::t('app', 'The license key in use belongs to {domain}', [
@@ -127,7 +127,11 @@ class Cp
                     }
                     $message .= ' ';
                     if (Craft::$app->getUser()->getIsAdmin()) {
-                        $message .= '<a class="go" href="' . UrlHelper::cpUrl('settings/plugins') . '">' . Craft::t('app', 'Resolve') . '</a>';
+                        if (Craft::$app->getConfig()->getGeneral()->allowAdminChanges) {
+                            $message .= '<a class="go" href="' . UrlHelper::cpUrl('settings/plugins') . '">' . Craft::t('app', 'Resolve') . '</a>';
+                        } else {
+                            $message .= Craft::t('app', 'Please fix on an environment where administrative changes are allowed.');
+                        }
                     } else {
                         $message .= Craft::t('app', 'Please notify one of your site’s admins.');
                     }

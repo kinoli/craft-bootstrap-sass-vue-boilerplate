@@ -58,21 +58,24 @@ class ElementHelper
         // No URL format, no URI.
         if ($uriFormat === null) {
             $element->uri = null;
+            return;
+        }
 
+        // If the URL format returns an empty string, the URL format probably wrapped everything in a condition
+        $testUri = self::_renderUriFormat($uriFormat, $element);
+        if ($testUri === '') {
+            $element->uri = null;
             return;
         }
 
         // Does the URL format even have a {slug} tag?
         if (!static::doesUriFormatHaveSlugTag($uriFormat)) {
-            $testUri = self::_renderUriFormat($uriFormat, $element);
-
             // Make sure it's unique
             if (!self::_isUniqueUri($testUri, $element)) {
                 throw new OperationAbortedException('Could not find a unique URI for this element');
             }
 
             $element->uri = $testUri;
-
             return;
         }
 
@@ -92,18 +95,14 @@ class ElementHelper
             $testUri = self::_renderUriFormat($uriFormat, $element);
 
             // Make sure we're not over our max length.
-            if (strlen($testUri) > 255) {
+            if (mb_strlen($testUri) > 255) {
                 // See how much over we are.
-                $overage = strlen($testUri) - 255;
+                $overage = mb_strlen($testUri) - 255;
 
                 // Do we have anything left to chop off?
-                if (strlen($overage) > strlen($element->slug) - strlen($slugWordSeparator . $i)) {
+                if ($overage < mb_strlen($element->slug)) {
                     // Chop off the overage amount from the slug
-                    $testSlug = $element->slug;
-                    $testSlug = substr($testSlug, 0, -$overage);
-
-                    // Update the slug
-                    $element->slug = $testSlug;
+                    $element->slug = mb_substr($element->slug, 0, -$overage);
 
                     // Let's try this again.
                     $i--;
@@ -118,7 +117,6 @@ class ElementHelper
                 // OMG!
                 $element->slug = $testSlug;
                 $element->uri = $testUri;
-
                 return;
             }
 
@@ -165,17 +163,29 @@ class ElementHelper
     {
         /** @var Element $element */
         $query = (new Query())
-            ->from(['{{%elements_sites}}'])
+            ->from(['{{%elements_sites}} elements_sites'])
+            ->innerJoin('{{%elements}} elements', '[[elements.id]] = [[elements_sites.elementId]]')
             ->where([
-                'siteId' => $element->siteId,
-                'uri' => $testUri
+                'elements_sites.siteId' => $element->siteId,
+                'elements.dateDeleted' => null,
             ]);
 
-        if ($element->id) {
-            $query->andWhere(['not', ['elementId' => $element->id]]);
+        if (Craft::$app->getDb()->getIsMysql()) {
+            $query->andWhere([
+                'elements_sites.uri' => $testUri,
+            ]);
+        } else {
+            // Postgres is case-sensitive
+            $query->andWhere([
+                'lower([[elements_sites.uri]])' => mb_strtolower($testUri),
+            ]);
         }
 
-        return (int)$query->count('[[id]]') === 0;
+        if ($element->id) {
+            $query->andWhere(['not', ['elements.id' => $element->id]]);
+        }
+
+        return (int)$query->count() === 0;
     }
 
     /**
@@ -201,6 +211,7 @@ class ElementHelper
     public static function supportedSitesForElement(ElementInterface $element): array
     {
         $sites = [];
+        $siteUidMap = ArrayHelper::map(Craft::$app->getSites()->getAllSites(), 'id', 'uid');
 
         foreach ($element->getSupportedSites() as $site) {
             if (!is_array($site)) {
@@ -210,6 +221,9 @@ class ElementHelper
             } else if (!isset($site['siteId'])) {
                 throw new Exception('Missing "siteId" key in ' . get_class($element) . '::getSupportedSites()');
             }
+
+            $site['siteUid'] = $siteUidMap[$site['siteId']];
+
             $sites[] = array_merge([
                 'enabledByDefault' => true,
             ], $site);
@@ -229,7 +243,7 @@ class ElementHelper
         if ($element->getIsEditable()) {
             if (Craft::$app->getIsMultiSite()) {
                 foreach (static::supportedSitesForElement($element) as $siteInfo) {
-                    if (Craft::$app->getUser()->checkPermission('editSite:' . $siteInfo['siteId'])) {
+                    if (Craft::$app->getUser()->checkPermission('editSite:' . $siteInfo['siteUid'])) {
                         return true;
                     }
                 }
@@ -254,7 +268,7 @@ class ElementHelper
         if ($element->getIsEditable()) {
             if (Craft::$app->getIsMultiSite()) {
                 foreach (static::supportedSitesForElement($element) as $siteInfo) {
-                    if (Craft::$app->getUser()->checkPermission('editSite:' . $siteInfo['siteId'])) {
+                    if (Craft::$app->getUser()->checkPermission('editSite:' . $siteInfo['siteUid'])) {
                         $siteIds[] = $siteInfo['siteId'];
                     }
                 }

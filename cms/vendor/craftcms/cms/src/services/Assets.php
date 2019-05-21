@@ -10,6 +10,7 @@ namespace craft\services;
 use Craft;
 use craft\base\Volume;
 use craft\db\Query;
+use craft\db\Table;
 use craft\elements\Asset;
 use craft\elements\db\AssetQuery;
 use craft\elements\User;
@@ -30,8 +31,8 @@ use craft\helpers\Db;
 use craft\helpers\FileHelper;
 use craft\helpers\Image;
 use craft\helpers\Json;
-use craft\helpers\StringHelper;
 use craft\helpers\UrlHelper;
+use craft\image\Raster;
 use craft\models\AssetTransform;
 use craft\models\FolderCriteria;
 use craft\models\VolumeFolder;
@@ -86,7 +87,12 @@ class Assets extends Component
     /**
      * @var
      */
-    private $_foldersById;
+    private $_foldersById = [];
+
+    /**
+     * @var
+     */
+    private $_foldersByUid = [];
 
     /**
      * @var bool Whether a Generate Pending Transforms job has already been queued up in this request
@@ -146,11 +152,13 @@ class Assets extends Component
     {
         // Fire a 'beforeReplaceFile' event
         if ($this->hasEventHandlers(self::EVENT_BEFORE_REPLACE_ASSET)) {
-            $this->trigger(self::EVENT_BEFORE_REPLACE_ASSET, new ReplaceAssetEvent([
+            $event = new ReplaceAssetEvent([
                 'asset' => $asset,
                 'replaceWith' => $pathOnServer,
                 'filename' => $filename
-            ]));
+            ]);
+            $this->trigger(self::EVENT_BEFORE_REPLACE_ASSET, $event);
+            $filename = $event->filename;
         }
 
         $asset->tempFilePath = $pathOnServer;
@@ -388,6 +396,29 @@ class Assets extends Component
     }
 
     /**
+     * Returns a folder by its UID.
+     *
+     * @param string $folderUid
+     * @return VolumeFolder|null
+     */
+    public function getFolderByUid(string $folderUid)
+    {
+        if ($this->_foldersByUid !== null && array_key_exists($folderUid, $this->_foldersByUid)) {
+            return $this->_foldersByUid[$folderUid];
+        }
+
+        $result = $this->_createFolderQuery()
+            ->where(['uid' => $folderUid])
+            ->one();
+
+        if (!$result) {
+            return $this->_foldersByUid[$folderUid] = null;
+        }
+
+        return $this->_foldersByUid[$folderUid] = new VolumeFolder($result);
+    }
+
+    /**
      * Finds folders that match a given criteria.
      *
      * @param mixed $criteria
@@ -510,7 +541,7 @@ class Assets extends Component
         }
 
         $query = (new Query())
-            ->from(['{{%volumefolders}}']);
+            ->from([Table::VOLUMEFOLDERS]);
 
         $this->_applyFolderConditions($query, $criteria);
 
@@ -688,9 +719,15 @@ class Assets extends Component
 
             // hail Mary
             try {
-                Craft::$app->getImages()->loadImage($imageSource, false, $svgSize)
-                    ->scaleToFit($width, $height)
-                    ->saveAs($path);
+                $image = Craft::$app->getImages()->loadImage($imageSource, false, $svgSize);
+
+                // Prevent resize of all layers
+                if ($image instanceof Raster) {
+                    $image->disableAnimation();
+                }
+
+                $image->scaleToFit($width, $height);
+                $image->saveAs($path);
             } catch (ImageException $exception) {
                 Craft::warning($exception->getMessage());
                 return $this->getIconPath($asset);
@@ -761,26 +798,30 @@ class Assets extends Component
         $existingFiles = [];
 
         foreach ($fileList as $file) {
-            if (StringHelper::toLowerCase(rtrim($folder->path, '/')) === StringHelper::toLowerCase($file['dirname'])) {
-                $existingFiles[StringHelper::toLowerCase($file['basename'])] = true;
+            if (mb_strtolower(rtrim($folder->path, '/')) === mb_strtolower($file['dirname'])) {
+                $existingFiles[mb_strtolower($file['basename'])] = true;
             }
         }
 
         // Get a list from DB as well
         $fileList = (new Query())
-            ->select(['filename'])
-            ->from(['{{%assets}}'])
-            ->where(['folderId' => $folderId])
+            ->select(['assets.filename'])
+            ->from(['{{%assets}} assets'])
+            ->innerJoin(['{{%elements}} elements'], '[[assets.id]] = [[elements.id]]')
+            ->where([
+                'assets.folderId' => $folderId,
+                'elements.dateDeleted' => null
+            ])
             ->column();
 
         // Combine the indexed list and the actual file list to make the final potential conflict list.
         foreach ($fileList as $file) {
-            $existingFiles[StringHelper::toLowerCase($file)] = true;
+            $existingFiles[mb_strtolower($file)] = true;
         }
 
         // Shorthand.
         $canUse = function($filenameToTest) use ($existingFiles) {
-            return !isset($existingFiles[StringHelper::toLowerCase($filenameToTest)]);
+            return !isset($existingFiles[mb_strtolower($filenameToTest)]);
         };
 
         if ($canUse($originalFilename)) {
@@ -900,6 +941,7 @@ class Assets extends Component
         $record->save();
 
         $folder->id = $record->id;
+        $folder->uid = $record->uid;
     }
 
     /**
@@ -972,8 +1014,8 @@ class Assets extends Component
     private function _createFolderQuery(): Query
     {
         return (new Query())
-            ->select(['id', 'parentId', 'volumeId', 'name', 'path'])
-            ->from(['{{%volumefolders}}']);
+            ->select(['id', 'parentId', 'volumeId', 'name', 'path', 'uid'])
+            ->from([Table::VOLUMEFOLDERS]);
     }
 
     /**
@@ -1026,6 +1068,10 @@ class Assets extends Component
 
         if ($criteria->name) {
             $query->andWhere(Db::parseParam('name', $criteria->name));
+        }
+
+        if ($criteria->uid) {
+            $query->andWhere(Db::parseParam('uid', $criteria->uid));
         }
 
         if ($criteria->path !== null) {
