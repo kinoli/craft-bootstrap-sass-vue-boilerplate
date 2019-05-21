@@ -23,7 +23,7 @@ This project scaffolding is rather opinionated and makes use of the following to
 
 * [Craft CMS 3](https://craftcms.com/) - Craft is a content-first CMS that aims to make life enjoyable for developers and content managers alike.
 * [Webpack 4](https://webpack.js.org/) - A bundler for JavaScript and friends with [code splitting](https://webpack.js.org/guides/code-splitting/) and [Hot Module Replacement](https://webpack.js.org/guides/hot-module-replacement/) set up.
-* [Bootstrap 4](https://getbootstrap.com/) - Build responsive, mobile-first projects on the web with the world's most popular front-end component library.
+* [Bootstrap-Vue](https://bootstrap-vue.js.org/) - The non-jquery vue.js port of Bootstrap 4.
 * [Vue.js 2](https://vuejs.org/) - The Progressive JavaScript Framework
 * [ECMAScript 2015 modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/New_in_JavaScript/ECMAScript_2015_support_in_Mozilla) - JavaScript's built-in modules
 * [SASS](http://tachyons.io/) - CSS with superpowers
