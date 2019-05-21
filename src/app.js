@@ -1,7 +1,7 @@
 // SASS
 import './app.scss'
+import 'bootstrap-vue/src/index.scss'
 
 // JS
-import 'bootstrap'
 require('./js/global.js')
 require('./js/vue.js')

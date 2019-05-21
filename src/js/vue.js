@@ -1,7 +1,9 @@
 import Vue from 'vue'
+import BootstrapVue from 'bootstrap-vue'
 // import s from "./store"
 import Logo from '../components/Logo.vue'
-import ModalGeneric from '../components/Modal-generic.vue'
+
+Vue.use(BootstrapVue)
 
 // Lazy load scripts for components, not routes!
 // const coolDiv = document.querySelector("#cool")
@@ -12,7 +14,7 @@ new Vue({
   el: '#app',
   delimiters: ['${', '}'],
   components: {
-    Logo, ModalGeneric
+    Logo
   },
   data: {
     privateState: {}

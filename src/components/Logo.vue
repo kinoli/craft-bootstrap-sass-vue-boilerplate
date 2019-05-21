@@ -1,6 +1,9 @@
 <template lang="html">
   <section class="logo">
-    <img :src="privateState.imgSrc" alt="Logo">
+    <img
+      :src="privateState.imgSrc"
+      alt="Logo"
+    >
   </section>
 </template>
 
@@ -9,7 +12,7 @@ import img from '../img/logo.png'
 // import s from "../store"
 
 export default {
-  name: 'logo',
+  name: 'Logo',
   data () {
     return {
       privateState: {
