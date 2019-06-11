@@ -30,11 +30,11 @@
     text-decoration: none; }
   :root:root .redactor-styles q,
   :root:root .redactor-dropdown-item-quote span {
-    quotes: '\AB\A0' '\A0\BB';
+    quotes: '«\A0' '\A0»';
     /* FR */
-    quotes: '\201E' '\201C' '\201A' '\2018';
+    quotes: '„' '“' '‚' '‘';
     /* DE */
-    quotes: '\201C' '\201D' '\2018' '\2019';
+    quotes: '“' '”' '‘' '’';
     /* EN_US */ }
   :root:root .redactor-styles q,
   :root:root .redactor-styles q:before,
@@ -117,7 +117,7 @@
     padding: 0.125em 0.25em;
     background-color: #FFEBEB; }
   :root:root .redactor-styles * {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     font-size: 1rem; }
   :root:root .redactor-styles h1, :root:root .redactor-styles h2, :root:root .redactor-styles h3, :root:root .redactor-styles h4, :root:root .redactor-styles h5, :root:root .redactor-styles h6 {
     font-weight: 700; }
