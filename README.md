@@ -4,9 +4,9 @@ As I discover new technologies, I find my boilerplates evolving and getting bett
 
 ## How it works
 
-This boilerplate is setup using Webpack to devlop on a local server (I use Mamp, but you can use whatever you want). the *dev* command will allow you to hot reload your changes, it will output files to the */dev* directory, which is where your local server should point its root to. 
+This boilerplate is setup using Webpack to devlop on a local server (I use Mamp, but you can use whatever you want). the *dev* script will allow you to hot reload your changes, it will output files to the */dev* directory, which is where your local server should point its root to. 
 
-The *build* command will output all production files to the */public_html* directory. Included is a sublime sftp configuration that is setup to automagically ftp any updates to that */build* directory into your server. You will need to configure that. Read below for full instructions.
+The *build* script will output all production files to the */public_html* directory. Included is a VSCode sftp configuration that is setup to automagically ftp any updates to that */build* directory into your server. You will need to configure that. Read below for full instructions.
 
 ### Workflow
 
@@ -27,7 +27,7 @@ This project scaffolding is rather opinionated and makes use of the following to
 * [Vue.js 2](https://vuejs.org/) - The Progressive JavaScript Framework
 * [ECMAScript 2015 modules](https://developer.mozilla.org/en-US/docs/Web/JavaScript/New_in_JavaScript/ECMAScript_2015_support_in_Mozilla) - JavaScript's built-in modules
 * [SASS](http://tachyons.io/) - CSS with superpowers
-* [axios](https://github.com/axios/axios) - [Not implemented yet] Promise based HTTP client for the browser and node.js
+* [axios](https://github.com/axios/axios) - [Not implemented yet] Promise based HTTP client for async requests through Vue.js
 * [ESLint](https://eslint.org/) - The pluggable linting utility for JavaScript and JSX.
 * [Standard JS](https://standardjs.com/) - JavaScript Standard Style
 * [Fontastic](http://fontastic.me/) - Add Vector Icons to Your Website
@@ -43,16 +43,18 @@ $ cd my-project
 $ git clone https://github.com/kinoli/craft-bootstrap-sass-vue-boilerplate ./
 ```
 
-> {Tip} I'f you want to now start using your own remote repo. Run this command. 
+> {Tip} I'f you want to repoint your git origin to start using your own remote repo. Run this command.
 ```
 $ git remote set-url origin git@gitlab.[YOUR-SERVER].com:GROUP/REPO-NAME.git
 ```
 
 ## 2. Install Dependencies
 
-In the project folder run: (`yarn` seems a bit buggy here, so we'll use npm)
+In the project folder run:
 
 ``` sh
+$ yarn
+// or
 $ npm install
 ```
 
@@ -113,7 +115,7 @@ Here are some plugins that I like to use on my websites. These can all be instal
 * Control Panel Nav
 * Embedded Assets
 * Gatekeeper
-* Iconpicker
+* Groupie
 * Redactor
 * Redactor Custom Styles
 * Redactor Tweaks
@@ -125,6 +127,13 @@ Deployment is done by running `yarn build` and everything in the /public_html di
 To do ftp deployment through your IDE's ftp sync from `/public_html` and `/cms` to your webserver. Note, the /cms directory should be a level above your public root directory.
 
 This boilerplate has sftp config setup for VSCode, which I highly recommend, but not required. A sample vscode config file is included in `/.vscode/sftp.json`, you can simply configure it as needed.
+
+Deployment should be automated, but currently it is not. After you do a `yarn build`, just upload the following...
+
+* /cms/templates/layout.twig
+* /public_html/lib/
+
+There is likely a way to automate this either through gitLab or even Webpack, but it currently is not setup yet.
 
 # About Craft CMS
 
