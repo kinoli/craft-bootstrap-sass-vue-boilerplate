@@ -1,6 +1,6 @@
+require('dotenv').config({ path: './cms/.env' })
 const path = require('path')
 const FriendlyErrorsPlugin = require('friendly-errors-webpack-plugin')
-// const CopyWebpackPlugin = require("copy-webpack-plugin")
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const VueLoaderPlugin = require('vue-loader/lib/plugin')
 const devMode = process.env.NODE_ENV !== 'production'
@@ -37,7 +37,8 @@ module.exports = {
         options: {
           limit: 10000,
           // name: 'img/[name].[hash:7].[ext]'
-          name: '[name].[ext]',
+          name: '[path][name].[ext]',
+          context: 'src',
           useRelativePath: true
         }
       },
@@ -77,24 +78,12 @@ module.exports = {
               sourceMap: true
             }
           },
-          // {
-          //   // Loader for webpack to process CSS with PostCSS
-          //   loader: 'postcss-loader',
-          //   options: {
-          //     plugins: function () {
-          //       return [
-          //         require('precss'),
-          //         require('autoprefixer')
-          //       ]
-          //     }
-          //   }
-          // },
           {
             // Loads a SASS/SCSS file and compiles it to CSS
             loader: 'sass-loader',
             options: {
               sourceMap: true,
-              data: '@import "./src/scss/vue-globals";'
+              prependData: '@import "./src/scss/vue-globals";'
             }
           }
         ]
@@ -107,27 +96,21 @@ module.exports = {
     // bundles in the body using style and script tags
     new HtmlWebpackPlugin({
       template: src + '/templates/_layout.twig',
-      filename: cms + '/templates/_layout.twig'
+      filename: cms + '/templates/_layout.twig',
+      minify: false
     }),
     new HtmlWebpackPlugin({
       template: src + '/.htaccess',
       filename: publicDir + '/.htaccess',
-      inject: false
+      inject: false,
+      minify: false
     }),
     new HtmlWebpackPlugin({
       template: src + '/index.php',
       filename: publicDir + '/index.php',
-      inject: false
+      inject: false,
+      minify: false
     }),
-
-    // Copy static assets
-    // new CopyWebpackPlugin([
-    //   {
-    //     from: path.resolve(__dirname, "./static"),
-    //     to: "static",
-    //     ignore: [".*"]
-    //   }
-    // ]),
 
     new FriendlyErrorsPlugin(),
     new VueLoaderPlugin()

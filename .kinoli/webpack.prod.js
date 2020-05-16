@@ -1,8 +1,10 @@
 const path = require('path')
 const merge = require('webpack-merge')
-const CleanWebpackPlugin = require('clean-webpack-plugin')
+const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin')
+const { ProgressPlugin } = require('webpack')
+const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer')
 
 process.env.NODE_ENV = 'production'
 const common = require('./webpack.common.js')
@@ -42,16 +44,15 @@ module.exports = merge(common, {
         exclude: /(node_modules|bower_components)/,
         loader: 'babel-loader',
         query: {
-          presets: ['vue', 'es2015'],
-          plugins: ['transform-es2015-arrow-functions', 'transform-class-properties', 'transform-object-rest-spread']
+          presets: ['vue']
         }
       },
       {
-        test: /\.scss$/,
+        test: /\.(css|scss)$/,
         exclude: path.resolve(__dirname, '../src/components'),
         use: [
           // { loader: 'vue-style-loader' },
-          MiniCssExtractPlugin.loader, // or MiniCssExtractPlugin.loader
+          { loader: MiniCssExtractPlugin.loader },
           { loader: 'css-loader', options: { sourceMap: false } }, // translates CSS into CommonJS
           { loader: 'sass-loader', options: { sourceMap: false } } // compiles Sass to CSS
         ]
@@ -67,7 +68,8 @@ module.exports = merge(common, {
   },
 
   plugins: [
-    new CleanWebpackPlugin([publicDir] + '/lib'),
+    new ProgressPlugin(),
+    new CleanWebpackPlugin({ cleanOnceBeforeBuildPatterns: [[publicDir] + '/lib'] }),
     new MiniCssExtractPlugin({
       filename: 'css/[hash:7].[name].min.css'
     }),
@@ -76,6 +78,7 @@ module.exports = merge(common, {
       // cssProcessor: require('cssnano'),
       // cssProcessorOptions: { safe: true, discardComments: { removeAll: true } },
       // canPrint: true
-    })
+    }),
+    new BundleAnalyzerPlugin()
   ]
 })

@@ -9,3 +9,4 @@
 /public_html/index.php
 /cms/templates/_layout.twig
 /cms/config/license.key
+.env

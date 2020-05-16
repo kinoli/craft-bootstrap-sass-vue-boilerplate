@@ -11,7 +11,7 @@ module.exports = merge(common, {
   },
 
   output: {
-    publicPath: 'http://boilerplate.test:8080/lib/'
+    publicPath: `http://${process.env.DB_SERVER}:8080/lib/`
   },
 
   module: {

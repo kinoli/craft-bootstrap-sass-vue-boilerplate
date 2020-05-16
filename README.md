@@ -80,20 +80,7 @@ If you’re not using MAMP, you will probably need to update your `hosts` file, 
 - **macOS/Linux/Unix:** `/etc/hosts`
 - **Windows:** `\Windows\System32\drivers\etc\hosts`
 
-## 5. Configure Webpack Server
-
-The local webpack server needs to have the same hostname that you setup for the project. Edit the host information in following files.
-```
-/.kinoli/webpack.server.js
-/.kinoli/webpack.dev.js
-```
-
-## 6. Setup Craft
-Now, run the web server so you can load the Craft installation. This will copy the necessary files into your `/dev` directory.
-
-``` sh
-yarn dev
-```
+## 5. Setup Craft
 You need to duplicate the Craft .env file. This will do it for you
 ```
 cp cms/.env.example cms/.env
@@ -104,11 +91,19 @@ Now run the craft setup script.
 cms/craft setup
 ```
 
+Now, run the web server so you can load the Craft installation. This will copy the necessary files into your `/dev` directory.
+
+``` sh
+yarn dev
+```
+
 If you get an error and your web server is setup properly, you can run the Craft installation by pointing your web browser to `http://HOSTNAME/index.php?p=admin` (substituting `HOSTNAME` with your new web server’s host name). You should get the Craft installation wizard, which will take you through a couple setup screens, and then perform the actual installation.
 
 > {tip} That `.env` file will be processed via [PHP dotenv], which the `craftcms/craft` project comes with preinstalled. The advantage of using PHP dotenv is that it offers a place to store sensitive information (like database connection settings) in a file that doesn’t get committed to your Git repository.
 
-### Install Craft Plugins
+### Update and Install Craft Plugins
+
+Login to your craft installation at `/admin` and navigate to the Utilities tab and run all the updates so your CraftCMS installation is up to date.
 
 Here are some plugins that I like to use on my websites. These can all be installed within your craft configuration at `/admin`.
 
@@ -120,7 +115,7 @@ Here are some plugins that I like to use on my websites. These can all be instal
 * Redactor Custom Styles
 * Redactor Tweaks
 
-## 7. Configure FTP Deployment
+## 6. Configure FTP Deployment
 
 Deployment is done by running `yarn build` and everything in the /public_html directory needs to be sync'd to your server, as well, any changes in your /cms/templates directory.
 

@@ -1,8 +1,9 @@
+// var dotenv = require('dotenv').config({path: __dirname + '/.env'})
 const path = require('path')
 const merge = require('webpack-merge')
 const dev = require('./webpack.dev.js')
 
-const host = 'boilerplate.test'
+const host = process.env.DB_SERVER
 
 module.exports = merge(dev, {
   devServer: {
