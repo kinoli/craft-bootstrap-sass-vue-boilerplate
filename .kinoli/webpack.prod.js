@@ -4,7 +4,7 @@ const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin')
 const { ProgressPlugin } = require('webpack')
-const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer')
+// const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer')
 
 process.env.NODE_ENV = 'production'
 const common = require('./webpack.common.js')
@@ -78,7 +78,7 @@ module.exports = merge(common, {
       // cssProcessor: require('cssnano'),
       // cssProcessorOptions: { safe: true, discardComments: { removeAll: true } },
       // canPrint: true
-    }),
-    new BundleAnalyzerPlugin()
+    })
+    // new BundleAnalyzerPlugin()
   ]
 })
