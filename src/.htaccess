@@ -9,7 +9,7 @@
 # # CROSS-ORIGIN RESOURCE SHARING (CORS)                                       #
 # ##############################################################################
 
-php_value memory_limit 256M
+# php_value memory_limit 256M
 
 # ------------------------------------------------------------------------------
 # | Cross-domain AJAX requests                                                 |
