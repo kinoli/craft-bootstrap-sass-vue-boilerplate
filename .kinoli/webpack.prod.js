@@ -3,7 +3,6 @@ const merge = require('webpack-merge')
 const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin')
-const { ProgressPlugin } = require('webpack')
 // const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer')
 
 process.env.NODE_ENV = 'production'
@@ -68,7 +67,6 @@ module.exports = merge(common, {
   },
 
   plugins: [
-    new ProgressPlugin(),
     new CleanWebpackPlugin({ cleanOnceBeforeBuildPatterns: [[publicDir] + '/lib'] }),
     new MiniCssExtractPlugin({
       filename: 'css/[hash:7].[name].min.css'

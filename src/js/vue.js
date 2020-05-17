@@ -1,27 +1,25 @@
-import Vue from 'vue'
-import BootstrapVue from 'bootstrap-vue'
+import Vue from "vue";
+import { ModalPlugin, BButton, BIcon, BIconAlarm } from "bootstrap-vue";
 // import s from "./store"
-import Logo from '../components/Logo.vue'
+import Logo from "../components/Logo.vue";
 
-Vue.use(BootstrapVue)
+// Tree-shake bootstrap-vue since it's large
+// Vue.use(BootstrapVue)
+Vue.use(ModalPlugin);
+Vue.component("BButton", BButton);
+Vue.component("BIcon", BIcon);
+Vue.component("BIconAlarm", BIconAlarm);
 
-// Lazy load scripts for components, not routes!
-// const coolDiv = document.querySelector("#cool")
-// if (coolDiv) import("./components/cool.js")
-
-/* eslint-disable no-new */
 new Vue({
-  el: '#app',
-  delimiters: ['${', '}'],
+  el: "#app",
+  delimiters: ["${", "}"],
   components: {
-    Logo
+    Logo,
   },
   data: {
-    privateState: {}
+    privateState: {},
     // sharedState: s.state
   },
-  mounted () {},
-  methods: {}
-})
-
-/* eslint-enable */
+  mounted() {},
+  methods: {},
+});

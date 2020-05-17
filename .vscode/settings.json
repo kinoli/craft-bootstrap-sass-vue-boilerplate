@@ -1,0 +1,45 @@
+{
+  "editor.detectIndentation": false,
+  "editor.tabSize": 2,
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
+  },
+  "eslint.alwaysShowStatus": true,
+  "editor.insertSpaces": true,
+  "eslint.format.enable": true,
+  "eslint.semi": false,
+  "eslint.workingDirectories": [{
+    "directory": "./src",
+    "changeProcessCWD": true
+  }],
+  "files.associations": {
+    "*.vue": "vue"
+  },
+  "files.encoding": "utf8",
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.trimTrailingWhitespace": true,
+  "search.exclude": {
+    "**/*.chunk.css": true,
+    "**/*.chunk.js": true,
+    "**/*.chunk.js.map": true,
+    "**/*.lock": true,
+    "**/*.min.js": true,
+    "**/*.svg": true,
+    "**/coverage/**": true,
+    "**/log/**": true,
+    "build": true,
+    "node_modules": true
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[scss]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
+}

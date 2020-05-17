@@ -7,7 +7,7 @@ process.env.NODE_ENV = 'production'
 const cmsDir = path.resolve(__dirname, '../cms')
 
 module.exports = {
-  entry: { 'kinoli': './src/scss/redactor/index.scss' },
+  entry: { kinoli: './src/scss/redactor/index.scss' },
   output: {
     filename: 'resources/[name].js',
     path: cmsDir + '/config/redactor/'
@@ -53,7 +53,7 @@ module.exports = {
         console.log('\x1b[0m')
         // console.log('\x1b[36m%s\x1b[0m', 'For remote delivery, don\'t forget to upload: /cms/config/redactor/resources/kinoli.css')
       }
-  })
+    })
   ]
 }
 232

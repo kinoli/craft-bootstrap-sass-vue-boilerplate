@@ -27,7 +27,9 @@ export default {
 </script>
 
 <style scoped lang="scss">
-  .logo {
-    img { width: 100px; }
+.logo {
+  img {
+    width: 100px;
   }
+}
 </style>

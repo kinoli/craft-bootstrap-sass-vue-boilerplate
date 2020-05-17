@@ -4,6 +4,7 @@ const FriendlyErrorsPlugin = require('friendly-errors-webpack-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const VueLoaderPlugin = require('vue-loader/lib/plugin')
 const devMode = process.env.NODE_ENV !== 'production'
+const { ProgressPlugin } = require('webpack')
 
 const publicDirStr = devMode ? '../dev' : '../public_html'
 const publicDir = path.resolve(__dirname, publicDirStr)
@@ -11,7 +12,7 @@ const cms = path.resolve(__dirname, '../cms')
 const src = path.resolve(__dirname, '../src')
 
 module.exports = {
-  entry: { 'bundle': './src/app.js' },
+  entry: { bundle: './src/app.js' },
   output: {
     filename: devMode ? 'js/[name].dev.js' : 'js/[hash:7].[name].min.js',
     path: publicDir + '/lib/',
@@ -44,7 +45,7 @@ module.exports = {
       },
       {
         test: /\.(ico)$/,
-        loader: 'file-loader?name=img/[name].[ext]'  // <-- retain original file name
+        loader: 'file-loader?name=img/[name].[ext]' // <-- retain original file name
       },
       {
         test: /\.(mp4|webm|ogg|mp3|wav|flac|aac)(\?.*)?$/,
@@ -113,6 +114,7 @@ module.exports = {
     }),
 
     new FriendlyErrorsPlugin(),
-    new VueLoaderPlugin()
+    new VueLoaderPlugin(),
+    new ProgressPlugin()
   ]
 }
