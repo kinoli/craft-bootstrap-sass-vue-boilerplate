@@ -18,6 +18,7 @@ module.exports = merge(dev, {
         secure: false
       }
     },
+    open: true,
     host: host,
     port: 8080,
     headers: {
