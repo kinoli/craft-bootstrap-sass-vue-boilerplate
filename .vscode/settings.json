@@ -1,7 +1,8 @@
 {
   "editor.detectIndentation": false,
   "editor.tabSize": 2,
-  "editor.formatOnSave": true,
+  "editor.formatOnSave": false,
+  "javascript.format.enable": false,
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": true
   },
@@ -12,9 +13,14 @@
   "eslint.workingDirectories": [{
     "directory": "./src",
     "changeProcessCWD": true
+  }, {
+    "directory": "./cms/templates",
+    "changeProcessCWD": true
   }],
   "files.associations": {
-    "*.vue": "vue"
+    "*.vue": "vue",
+    "*.html": "twig",
+    "*.twig": "twig"
   },
   "files.encoding": "utf8",
   "files.eol": "\n",
