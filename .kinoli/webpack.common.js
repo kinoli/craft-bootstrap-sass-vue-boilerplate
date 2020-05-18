@@ -4,7 +4,6 @@ const FriendlyErrorsPlugin = require('friendly-errors-webpack-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const VueLoaderPlugin = require('vue-loader/lib/plugin')
 const devMode = process.env.NODE_ENV !== 'production'
-const { ProgressPlugin } = require('webpack')
 
 const publicDirStr = devMode ? '../dev' : '../public_html'
 const publicDir = path.resolve(__dirname, publicDirStr)
@@ -114,7 +113,6 @@ module.exports = {
     }),
 
     new FriendlyErrorsPlugin(),
-    new VueLoaderPlugin(),
-    new ProgressPlugin()
+    new VueLoaderPlugin()
   ]
 }
