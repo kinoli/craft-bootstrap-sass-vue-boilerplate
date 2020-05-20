@@ -1,9 +1,6 @@
 <template lang="html">
   <section class="logo">
-    <img
-      :src="privateState.imgSrc"
-      alt="Logo"
-    >
+    <img :src="privateState.imgSrc" alt="Logo" />
   </section>
 </template>
 

@@ -1,10 +1,10 @@
 // SASS
-import "./app.scss";
+import './app.scss'
 
 // JS
-require("./js/global.js");
-require("./js/vue.js");
+require('./js/global.js')
+require('./js/vue.js')
 
 // IMAGES
-import "./img/apple-touch-icon-precomposed.png";
-import "./img/favicon.ico";
+import './img/apple-touch-icon-precomposed.png'
+import './img/favicon.ico'
