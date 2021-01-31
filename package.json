@@ -16,7 +16,7 @@
     "lint:fix": "eslint --ext .js,.vue -f ./node_modules/eslint-friendly-formatter --fix src"
   },
   "dependencies": {
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "babel-preset-stage-2": "^6.24.1",
     "bootstrap": "^4.5.0",
     "bootstrap-vue": "^2.14.0",
