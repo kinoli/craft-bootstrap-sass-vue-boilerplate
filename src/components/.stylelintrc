@@ -1,0 +1,28 @@
+{
+  "plugins": [
+    "stylelint-order"
+  ],
+  "rules": {
+    "indentation": 2,
+    "string-quotes": "single",
+    "order/order": [
+      "custom-properties",
+      "declarations"
+    ],
+    "no-descending-specificity": null,
+    "order/properties-alphabetical-order": true,
+    "max-empty-lines": 1,
+    "rule-empty-line-before": [
+      "always",
+      {
+        "except": [
+          "first-nested"
+        ]
+      }
+    ]
+  },
+  "ignoreFiles": [
+    "**/*.js"
+  ],
+  "extends": ["stylelint-config-recommended-scss"]
+}

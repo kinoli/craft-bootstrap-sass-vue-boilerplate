@@ -2,22 +2,22 @@ module.exports = {
   root: true,
   // parser: 'babel-eslint',
   parserOptions: {
-    sourceType: 'module'
+    sourceType: 'module',
   },
   env: {
     es6: true,
     browser: true,
-    node: true
+    node: true,
   },
   extends: [
     // add more generic rulesets here, such as:
     'plugin:prettier/recommended', // turns off all ESLINT rules that are unnecessary due to Prettier or might conflict with Prettier.
     'plugin:vue/recommended', // /base, /essential, /strongly-recommended, /recommended
     'prettier/vue',
-    'prettier/standard'
+    'prettier/standard',
   ],
   globals: {
-    __static: true
+    __static: true,
   },
   plugins: ['html', 'simple-import-sort', 'prettier', 'vue'],
   rules: {
@@ -36,9 +36,9 @@ module.exports = {
         code: 120,
         ignoreStrings: true,
         ignoreTemplateLiterals: true,
-        ignoreComments: true
-      }
+        ignoreComments: true,
+      },
     ],
-    'vue/max-attributes-per-line': 'off'
-  }
+    'vue/max-attributes-per-line': 'off',
+  },
 }
