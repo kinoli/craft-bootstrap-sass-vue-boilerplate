@@ -30,7 +30,6 @@ services:
       MYSQL_DATABASE: dev_craftcms
       MYSQL_USER: craftcms
       MYSQL_PASSWORD: SecretPassword
-      MYSQL_ROOT_HOST: "%"
     volumes:
       - db_data:/var/lib/mysql
     restart: always
