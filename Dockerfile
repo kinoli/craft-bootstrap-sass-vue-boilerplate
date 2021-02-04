@@ -74,6 +74,9 @@ RUN set -ex && \
 # copy custom.ini settings
 COPY craft-cms.ini /usr/local/etc/php/conf.d/
 
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
 # make the directories and set permissions
 RUN mkdir -p /app
 
