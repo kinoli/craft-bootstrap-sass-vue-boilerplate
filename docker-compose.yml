@@ -1,0 +1,43 @@
+version: "3.6"
+services:
+  php-fpm:
+    container_name: php-fpm
+    image: craftcms/php-fpm:7.4-dev
+    volumes:
+      - .:/app
+    env_file: cms/.env
+  nginx:
+    container_name: nginx
+    image: nginx:stable-alpine
+    ports:
+      - 8000:80
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - .:/app
+  console:
+    image: craftcms/cli:7.4-dev
+    volumes:
+      - .:/app
+    env_file: cms/.env
+    command: ["./cms", "queue/listen"]
+  mysql:
+    container_name: mysql
+    image: mysql:latest
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: SecretPassword
+      MYSQL_DATABASE: dev_craftcms
+      MYSQL_USER: craftcms
+      MYSQL_PASSWORD: SecretPassword
+      MYSQL_ROOT_HOST: "%"
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+  redis:
+    container_name: redis
+    image: redis:5-alpine
+    ports:
+      - 6379:6379
+volumes:
+  db_data:
