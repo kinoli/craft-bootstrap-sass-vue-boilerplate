@@ -14,7 +14,7 @@ namespace Composer\Command;
 
 use Composer\Package\CompletePackageInterface;
 use Composer\Repository\RepositoryInterface;
-use Composer\Repository\ArrayRepository;
+use Composer\Repository\RootPackageRepository;
 use Composer\Repository\RepositoryFactory;
 use Composer\Util\Platform;
 use Composer\Util\ProcessExecutor;
@@ -42,12 +42,15 @@ class HomeCommand extends BaseCommand
                 new InputOption('homepage', 'H', InputOption::VALUE_NONE, 'Open the homepage instead of the repository URL.'),
                 new InputOption('show', 's', InputOption::VALUE_NONE, 'Only show the homepage or repository URL.'),
             ))
-            ->setHelp(<<<EOT
+            ->setHelp(
+                <<<EOT
 The home command opens or shows a package's repository URL or
 homepage in your default browser.
 
 To open the homepage by default, use -H or --homepage.
 To show instead of open the repository or homepage URL, use -s or --show.
+
+Read more at https://getcomposer.org/doc/03-cli.md#browse-home
 EOT
             );
     }
@@ -154,7 +157,7 @@ EOT
 
         if ($composer) {
             return array_merge(
-                array(new ArrayRepository(array($composer->getPackage()))), // root package
+                array(new RootPackageRepository($composer->getPackage())), // root package
                 array($composer->getRepositoryManager()->getLocalRepository()), // installed packages
                 $composer->getRepositoryManager()->getRepositories() // remotes
             );

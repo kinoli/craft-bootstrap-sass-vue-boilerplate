@@ -13,6 +13,7 @@
 namespace Composer\Repository\Vcs;
 
 use Composer\Config;
+use Composer\Cache;
 use Composer\IO\IOInterface;
 use Composer\Util\ProcessExecutor;
 use Composer\Util\Perforce;
@@ -52,6 +53,10 @@ class PerforceDriver extends VcsDriver
     {
         if (!empty($this->perforce)) {
             return;
+        }
+
+        if (!Cache::isUsable($this->config->get('cache-vcs-dir'))) {
+            throw new \RuntimeException('PerforceDriver requires a usable cache directory, and it looks like you set it to be disabled');
         }
 
         $repoDir = $this->config->get('cache-vcs-dir') . '/' . $this->depot;
@@ -111,14 +116,12 @@ class PerforceDriver extends VcsDriver
      */
     public function getSource($identifier)
     {
-        $source = array(
+        return array(
             'type' => 'perforce',
             'url' => $this->repoConfig['url'],
             'reference' => $identifier,
             'p4user' => $this->perforce->getUser(),
         );
-
-        return $source;
     }
 
     /**
@@ -135,7 +138,6 @@ class PerforceDriver extends VcsDriver
     public function hasComposerFile($identifier)
     {
         $composerInfo = $this->perforce->getComposerInformation('//' . $this->depot . '/' . $identifier);
-        $composerInfoIdentifier = $identifier;
 
         return !empty($composerInfo);
     }

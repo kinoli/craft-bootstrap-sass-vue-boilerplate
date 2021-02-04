@@ -19,13 +19,10 @@ use yii\validators\Validator;
  * Class AssetLocationValidator.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class AssetLocationValidator extends Validator
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var string The folder ID attribute on the model
      */
@@ -71,9 +68,6 @@ class AssetLocationValidator extends Validator
      */
     public $avoidFilenameConflicts;
 
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -100,7 +94,7 @@ class AssetLocationValidator extends Validator
     public function validateAttribute($model, $attribute)
     {
         /** @var Asset $model */
-        list($folderId, $filename) = Assets::parseFileLocation($model->$attribute);
+        [$folderId, $filename] = Assets::parseFileLocation($model->$attribute);
 
         // Figure out which of them has changed
         $hasNewFolderId = $folderId != $model->{$this->folderIdAttribute};
@@ -133,9 +127,9 @@ class AssetLocationValidator extends Validator
 
         if ($suggestedFilename !== $filename) {
             $model->{$this->conflictingFilenameAttribute} = $filename;
+            $model->{$this->suggestedFilenameAttribute} = $suggestedFilename;
 
             if (!$this->avoidFilenameConflicts) {
-                $model->{$this->suggestedFilenameAttribute} = $suggestedFilename;
                 $this->addLocationError($model, $attribute, Asset::ERROR_FILENAME_CONFLICT, $this->filenameConflict, ['filename' => $filename]);
 
                 return;

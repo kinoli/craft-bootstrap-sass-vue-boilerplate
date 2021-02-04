@@ -41,6 +41,7 @@
         iframeAnimatingClass = 'yii-debug-toolbar_iframe_animating',
         titleClass = 'yii-debug-toolbar__title',
         blockClass = 'yii-debug-toolbar__block',
+        ignoreClickClass = 'yii-debug-toolbar__ignore_click',
         blockActiveClass = 'yii-debug-toolbar__block_active',
         requestStack = [];
 
@@ -55,6 +56,16 @@
                 toolbarEl.parentNode && toolbarEl.parentNode.replaceChild(div, toolbarEl);
 
                 showToolbar(findToolbar());
+
+                var event;
+                if (typeof(Event) === 'function') {
+                    event = new Event('yii.debug.toolbar_attached', {'bubbles': true});
+                } else {
+                    event = document.createEvent('Event');
+                    event.initEvent('yii.debug.toolbar_attached', true, true);
+                }
+
+                div.dispatchEvent(event);
             },
             error: function (xhr) {
                 toolbarEl.innerText = xhr.responseText;
@@ -188,7 +199,9 @@
             var target = e.target,
                 block = findAncestor(target, blockClass);
 
-            if (block && !block.classList.contains(titleClass)
+            if (block
+                && !block.classList.contains(titleClass)
+                && !block.classList.contains(ignoreClickClass)
                 && e.which !== 2 && !e.ctrlKey // not mouse wheel and not ctrl+click
             ) {
                 while (target !== this) {
@@ -300,14 +313,28 @@
         requestCounter[0].className = className;
     }
 
+    /**
+     * Should AJAX request to be logged in debug panel
+     *
+     * @param requestUrl
+     * @returns {boolean}
+     */
+    function shouldTrackRequest(requestUrl) {
+        var a = document.createElement('a');
+        a.href = requestUrl;
+        var skipAjaxRequestUrls = JSON.parse(toolbarEl.getAttribute('data-skip-urls'));
+        if (Array.isArray(skipAjaxRequestUrls) && skipAjaxRequestUrls.length && skipAjaxRequestUrls.includes(requestUrl)) {
+            return false;
+        }
+        return a.host === location.host;
+    }
+
     var proxied = XMLHttpRequest.prototype.open;
 
     XMLHttpRequest.prototype.open = function (method, url, async, user, pass) {
         var self = this;
 
-        // fix https://github.com/yiisoft/yii2-debug/issues/326
-        /* prevent logging AJAX calls to static and inline files, like templates */
-        if (url && url.substr(0, 1) === '/' && !url.match(new RegExp('{{ excluded_ajax_paths }}'))) {
+        if (shouldTrackRequest(url)) {
             var stackElement = {
                 loading: true,
                 error: false,
@@ -351,8 +378,7 @@
             }
             var promise = originalFetch(input, init);
 
-            /* prevent logging AJAX calls to static and inline files, like templates */
-            if (url && url.substr(0, 1) === '/' && !url.match(new RegExp('{{ excluded_ajax_paths }}'))) {
+            if (shouldTrackRequest(url)) {
                 var stackElement = {
                     loading: true,
                     error: false,

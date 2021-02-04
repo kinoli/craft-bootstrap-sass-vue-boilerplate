@@ -18,7 +18,7 @@ In Composer, what's often referred to casually as a version -- that is,
 the string that follows the package name in a require line (e.g., `~1.1` or
 `1.2.*`) -- is actually more specifically a version constraint. Composer
 uses version constraints to figure out which refs in a VCS it should be
-checking out (or simply to verify that a given library is acceptable in
+checking out (or to verify that a given library is acceptable in
 the case of a statically-maintained library with a `version` specification
 in `composer.json`).
 
@@ -32,7 +32,7 @@ repository:*
 v1
 v2
 my-feature
-nother-feature
+another-feature
 
 ~/my-library$ git tag
 v1.0
@@ -54,7 +54,7 @@ v2.0.2
 
 Normally, Composer deals with tags (as opposed to branches -- if you don't
 know what this means, read up on
-[version control systems](https://en.wikipedia.org/wiki/Version_control#Common_vocabulary)).
+[version control systems](https://en.wikipedia.org/wiki/Version_control#Common_terminology)).
 When you write a version constraint, it may reference a specific tag (e.g.,
 `1.1`) or it may reference a valid range of tags (e.g., `>=1.1 <2.0`, or
 `~4.0`). To resolve these constraints, Composer first asks the VCS to list
@@ -74,11 +74,11 @@ correct location in your `vendor` directory.
 
 ### Branches
 
-If you want Composer to check out a branch instead of a tag, you need to point it to the branch using the special `dev-*` prefix (or sometimes suffix; see below). If you're checking out a branch, it's assumed that you want to *work* on the branch and Composer actually clones the repo into the correct place in your `vendor` directory. For tags, it just copies the right files without actually cloning the repo. (You can modify this behavior with --prefer-source and --prefer-dist, see [install options](../03-cli.md#install).)
+If you want Composer to check out a branch instead of a tag, you need to point it to the branch using the special `dev-*` prefix (or sometimes suffix; see below). If you're checking out a branch, it's assumed that you want to *work* on the branch and Composer actually clones the repo into the correct place in your `vendor` directory. For tags, it copies the right files without actually cloning the repo. (You can modify this behavior with --prefer-source and --prefer-dist, see [install options](../03-cli.md#install).)
 
 In the above example, if you wanted to check out the `my-feature` branch, you would specify `dev-my-feature` as the version constraint in your `require` clause. This would result in Composer cloning the `my-library` repository into my `vendor` directory and checking out the `my-feature` branch.
 
-When branch names look like versions, we have to clarify for composer that we're trying to check out a branch and not a tag. In the above example, we have two version branches: `v1` and `v2`. To get Composer to check out one of these branches, you must specify a version constraint that looks like this: `v1.x-dev`. The `.x` is an arbitrary string that Composer requires to tell it that we're talking about the `v1` branch and not a `v1` tag (alternatively, you can just name the branch `v1.x` instead of `v1`). In the case of a branch with a version-like name (`v1`, in this case), you append `-dev` as a suffix, rather than using `dev-` as a prefix.
+When branch names look like versions, we have to clarify for composer that we're trying to check out a branch and not a tag. In the above example, we have two version branches: `v1` and `v2`. To get Composer to check out one of these branches, you must specify a version constraint that looks like this: `v1.x-dev`. The `.x` is an arbitrary string that Composer requires to tell it that we're talking about the `v1` branch and not a `v1` tag (alternatively, you can name the branch `v1.x` instead of `v1`). In the case of a branch with a version-like name (`v1`, in this case), you append `-dev` as a suffix, rather than using `dev-` as a prefix.
 
 ### Minimum Stability
 
@@ -117,7 +117,7 @@ Examples:
 * `>=1.0 <2.0`
 * `>=1.0 <1.1 || >=1.2`
 
-### Hyphenated Version Range ( - )
+### Hyphenated Version Range (` - `)
 
 Inclusive set of versions. Partial versions on the right include are completed
 with a wildcard. For example `1.0 - 2.0` is equivalent to `>=1.0.0 <2.1` as the
@@ -126,7 +126,7 @@ with a wildcard. For example `1.0 - 2.0` is equivalent to `>=1.0.0 <2.1` as the
 
 Example: `1.0 - 2.0`
 
-### Wildcard Version Range (.*)
+### Wildcard Version Range (`.*`)
 
 You can specify a pattern with a `*` wildcard. `1.0.*` is the equivalent of
 `>=1.0 <1.1`.
@@ -135,7 +135,7 @@ Example: `1.0.*`
 
 ## Next Significant Release Operators
 
-### Tilde Version Range (~)
+### Tilde Version Range (`~`)
 
 The `~` operator is best explained by example: `~1.2` is equivalent to
 `>=1.2 <2.0.0`, while `~1.2.3` is equivalent to `>=1.2.3 <1.3.0`. As you can see
@@ -157,9 +157,9 @@ Example: `~1.2`
 > it will not allow the major number to increase trying to keep backwards
 > compatibility.
 
-### Caret Version Range (^)
+### Caret Version Range (`^`)
 
-The `^` operator behaves very similarly but it sticks closer to semantic
+The `^` operator behaves very similarly, but it sticks closer to semantic
 versioning, and will always allow non-breaking updates. For example `^1.2.3`
 is equivalent to `>=1.2.3 <2.0.0` as none of the releases until 2.0 should
 break backwards compatibility. For pre-1.0 versions it also acts with safety

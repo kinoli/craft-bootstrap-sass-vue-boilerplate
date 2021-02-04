@@ -87,6 +87,22 @@ $this->title = 'Yii Debugger';
                         },
                         'format' => 'html',
                     ],
+                    [
+                        'attribute' => 'processingTime',
+                        'value' => function ($data) {
+                            return isset($data['processingTime']) ? number_format($data['processingTime'] * 1000) .
+                                ' ms' : '<span class="not-set">(not set)</span>';
+                        },
+                        'format' => 'html',
+                    ],
+                    [
+                        'attribute' => 'peakMemory',
+                        'value' => function ($data) {
+                            return isset($data['peakMemory']) ? sprintf('%.3f MB', $data['peakMemory'] /
+                                1048576) : '<span class="not-set">(not set)</span>';
+                        },
+                        'format' => 'html',
+                    ],
                     'ip',
                     $hasDbPanel ? [
                         'attribute' => 'sqlCount',
@@ -159,7 +175,7 @@ $this->title = 'Yii Debugger';
     </div>
 </div>
 <script type="text/javascript">
-    if (!window.frameElement) {
+    if (window.top == window) {
         document.querySelector('#yii-debug-toolbar').style.display = 'block';
     }
 </script>

@@ -33,21 +33,21 @@ class ErrorException extends \ErrorException
     /**
      * Constructs the exception.
      * @link https://secure.php.net/manual/en/errorexception.construct.php
-     * @param $message [optional]
-     * @param $code [optional]
-     * @param $severity [optional]
-     * @param $filename [optional]
-     * @param $lineno [optional]
-     * @param $previous [optional]
+     * @param string $message [optional]
+     * @param int $code [optional]
+     * @param int $severity [optional]
+     * @param string $filename [optional]
+     * @param int $lineno [optional]
+     * @param \Throwable|\Exception $previous [optional]
      */
-    public function __construct($message = '', $code = 0, $severity = 1, $filename = __FILE__, $lineno = __LINE__, \Exception $previous = null)
+    public function __construct($message = '', $code = 0, $severity = 1, $filename = __FILE__, $lineno = __LINE__, $previous = null)
     {
         parent::__construct($message, $code, $severity, $filename, $lineno, $previous);
 
         if (function_exists('xdebug_get_function_stack')) {
             // XDebug trace can't be modified and used directly with PHP 7
             // @see https://github.com/yiisoft/yii2/pull/11723
-            $xDebugTrace = array_slice(array_reverse(xdebug_get_function_stack()), 3, -1);
+            $xDebugTrace = array_slice(array_reverse(xdebug_get_function_stack()), 1, -1);
             $trace = [];
             foreach ($xDebugTrace as $frame) {
                 if (!isset($frame['function'])) {

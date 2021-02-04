@@ -5,9 +5,7 @@ Composer helps you declare, manage, and install dependencies of PHP projects.
 
 See [https://getcomposer.org/](https://getcomposer.org/) for more information and documentation.
 
-[![Build Status](https://travis-ci.org/composer/composer.svg?branch=master)](https://travis-ci.org/composer/composer)
-[![Dependency Status](https://www.versioneye.com/php/composer:composer/dev-master/badge.svg)](https://www.versioneye.com/php/composer:composer/dev-master)
-[![Reference Status](https://www.versioneye.com/php/composer:composer/reference_badge.svg?style=flat)](https://www.versioneye.com/php/composer:composer/references)
+[![Continuous Integration](https://github.com/composer/composer/workflows/Continuous%20Integration/badge.svg?branch=master)](https://github.com/composer/composer/actions)
 
 Installation / Usage
 --------------------
@@ -31,7 +29,7 @@ For support, Stack Overflow also offers a good collection of
 [Composer related questions](https://stackoverflow.com/questions/tagged/composer-php).
 
 Please note that this project is released with a
-[Contributor Code of Conduct](http://contributor-covenant.org/version/1/4/).
+[Contributor Code of Conduct](https://www.contributor-covenant.org/version/1/4/code-of-conduct/).
 By participating in this project and its community you agree to abide by those terms.
 
 Requirements
@@ -42,8 +40,8 @@ PHP 5.3.2 or above (at least 5.3.4 recommended to avoid potential bugs)
 Authors
 -------
 
-- Nils Adermann  | [GitHub](https://github.com/naderman)  | [Twitter](https://twitter.com/naderman) | <naderman@naderman.de> | [naderman.de](http://naderman.de)
-- Jordi Boggiano | [GitHub](https://github.com/Seldaek) | [Twitter](https://twitter.com/seldaek) | <j.boggiano@seld.be> | [seld.be](http://seld.be)
+- Nils Adermann  | [GitHub](https://github.com/naderman)  | [Twitter](https://twitter.com/naderman) | <naderman@naderman.de> | [naderman.de](https://naderman.de)
+- Jordi Boggiano | [GitHub](https://github.com/Seldaek) | [Twitter](https://twitter.com/seldaek) | <j.boggiano@seld.be> | [seld.be](https://seld.be)
 
 See also the list of [contributors](https://github.com/composer/composer/contributors) who participated in this project.
 
@@ -55,12 +53,10 @@ Please send any sensitive issue to [security@packagist.org](mailto:security@pack
 License
 -------
 
-Composer is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
+Composer is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 Acknowledgments
 ---------------
 
 - This project's Solver started out as a PHP port of openSUSE's
   [Libzypp satsolver](https://en.opensuse.org/openSUSE:Libzypp_satsolver).
-- This project uses hiddeninput.exe to prompt for passwords on windows, sources
-  and details can be found on the [github page of the project](https://github.com/Seldaek/hidden-input).

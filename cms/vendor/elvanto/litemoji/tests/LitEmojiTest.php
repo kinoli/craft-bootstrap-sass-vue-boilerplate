@@ -2,7 +2,9 @@
 
 namespace LitEmoji;
 
-class LitEmojiTest extends \PHPUnit_Framework_TestCase
+use PHPUnit\Framework\TestCase;
+
+class LitEmojiTest extends TestCase
 {
     public function testUnicodeToShortcode()
     {
@@ -48,7 +50,7 @@ class LitEmojiTest extends \PHPUnit_Framework_TestCase
 
     public function testConfigExcludeShortcodes()
     {
-        LitEmoji::config('excludeShortcodes', ['mobile', 'android']);
+        LitEmoji::config('excludeShortcodes', ['mobile', 'android', 'mobile_phone']);
         $this->assertEquals(':iphone:', LitEmoji::encodeShortcode('📱'));
     }
 }

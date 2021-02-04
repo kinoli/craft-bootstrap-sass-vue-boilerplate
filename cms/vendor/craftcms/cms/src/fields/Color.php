@@ -12,6 +12,7 @@ use craft\base\ElementInterface;
 use craft\base\Field;
 use craft\base\PreviewableFieldInterface;
 use craft\fields\data\ColorData;
+use craft\helpers\Cp;
 use craft\helpers\Html;
 use craft\validators\ColorValidator;
 use yii\db\Schema;
@@ -20,13 +21,10 @@ use yii\db\Schema;
  * Color represents a Color field.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Color extends Field implements PreviewableFieldInterface
 {
-    // Static
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -35,16 +33,18 @@ class Color extends Field implements PreviewableFieldInterface
         return Craft::t('app', 'Color');
     }
 
-    // Properties
-    // =========================================================================
+    /**
+     * @inheritdoc
+     */
+    public static function valueType(): string
+    {
+        return ColorData::class . '|null';
+    }
 
     /**
      * @var string|null The default color hex
      */
     public $defaultColor;
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * @inheritdoc
@@ -54,25 +54,24 @@ class Color extends Field implements PreviewableFieldInterface
         return Schema::TYPE_STRING . '(7)';
     }
 
+    /** @inheritdoc */
     public function getSettingsHtml()
     {
-        return Craft::$app->getView()->renderTemplateMacro('_includes/forms.html', 'colorField', [
-            [
-                'label' => Craft::t('app', 'Default Color'),
-                'id' => 'default-color',
-                'name' => 'defaultColor',
-                'value' => $this->defaultColor,
-                'errors' => $this->getErrors('defaultColor'),
-            ]
+        return Cp::colorFieldHtml([
+            'label' => Craft::t('app', 'Default Color'),
+            'id' => 'default-color',
+            'name' => 'defaultColor',
+            'value' => $this->defaultColor,
+            'errors' => $this->getErrors('defaultColor'),
         ]);
     }
 
     /**
      * @inheritdoc
      */
-    public function rules()
+    protected function defineRules(): array
     {
-        $rules = parent::rules();
+        $rules = parent::defineRules();
         $rules[] = [['defaultColor'], ColorValidator::class];
         return $rules;
     }
@@ -112,11 +111,13 @@ class Color extends Field implements PreviewableFieldInterface
     /**
      * @inheritdoc
      */
-    public function getInputHtml($value, ElementInterface $element = null): string
+    protected function inputHtml($value, ElementInterface $element = null): string
     {
         /** @var ColorData|null $value */
+        $id = Html::id($this->handle);
         return Craft::$app->getView()->renderTemplate('_includes/forms/color', [
-            'id' => Craft::$app->getView()->formatInputId($this->handle),
+            'id' => $id,
+            'instructionsId' => "$id-instructions",
             'name' => $this->handle,
             'value' => $value ? $value->getHex() : null,
         ]);

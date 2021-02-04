@@ -8,27 +8,23 @@
 namespace craft\console\controllers;
 
 use Craft;
+use craft\console\Controller;
 use craft\elements\User;
+use craft\helpers\Console;
 use craft\helpers\Install as InstallHelper;
 use craft\migrations\Install;
 use craft\models\Site;
-use Seld\CliPrompt\CliPrompt;
 use yii\base\Exception;
-use yii\console\Controller;
 use yii\console\ExitCode;
-use yii\helpers\Console;
 
 /**
  * Craft CMS CLI installer.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class InstallController extends Controller
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var string|null The default email address for the first user to create during install
      */
@@ -59,10 +55,8 @@ class InstallController extends Controller
      */
     public $language;
 
+    /** @inheritdoc */
     public $defaultAction = 'craft';
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * @inheritdoc
@@ -84,7 +78,24 @@ class InstallController extends Controller
     }
 
     /**
-     * Runs the install migration
+     * Checks whether Craft is already installed.
+     *
+     * @return int
+     * @since 3.5.0
+     */
+    public function actionCheck(): int
+    {
+        if (!Craft::$app->getIsInstalled()) {
+            $this->stdout('Craft is not installed yet.' . PHP_EOL);
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        $this->stdout('Craft is installed.' . PHP_EOL);
+        return ExitCode::OK;
+    }
+
+    /**
+     * Runs the install migration.
      *
      * @return int
      */
@@ -121,19 +132,26 @@ class InstallController extends Controller
             return ExitCode::USAGE;
         }
 
-        $username = $this->username ?: $this->prompt('Username:', ['validator' => [$this, 'validateUsername'], 'default' => 'admin']);
-        $email = $this->email ?: $this->prompt('Email:', ['required' => true, 'validator' => [$this, 'validateEmail']]);
-        $password = $this->password ?: $this->_passwordPrompt();
+        $configService = Craft::$app->getConfig();
+        $generalConfig = $configService->getGeneral();
+
+        if ($generalConfig->useEmailAsUsername) {
+            $username = $email = $this->email ?: $this->prompt('Email:', ['required' => true, 'validator' => [$this, 'validateEmail']]);
+        } else {
+            $username = $this->username ?: $this->prompt('Username:', ['validator' => [$this, 'validateUsername'], 'default' => 'admin']);
+            $email = $this->email ?: $this->prompt('Email:', ['required' => true, 'validator' => [$this, 'validateEmail']]);
+        }
+        $password = $this->password ?: $this->passwordPrompt(['validator' => [$this, 'validatePassword']]);
         $siteName = $this->siteName ?: $this->prompt('Site name:', ['required' => true, 'default' => InstallHelper::defaultSiteName(), 'validator' => [$this, 'validateSiteName']]);
         $siteUrl = $this->siteUrl ?: $this->prompt('Site URL:', ['required' => true, 'default' => InstallHelper::defaultSiteUrl(), 'validator' => [$this, 'validateSiteUrl']]);
         $language = $this->language ?: $this->prompt('Site language:', ['default' => InstallHelper::defaultSiteLanguage(), 'validator' => [$this, 'validateLanguage']]);
 
-        // Try to save the site URL to a DEFAULT_SITE_URL environment variable
+        // Try to save the site URL to a PRIMARY_SITE_URL environment variable
         // if it's not already set to an alias or environment variable
         if ($siteUrl[0] !== '@' && $siteUrl[0] !== '$') {
             try {
-                Craft::$app->getConfig()->setDotEnvVar('DEFAULT_SITE_URL', $siteUrl);
-                $siteUrl = '$DEFAULT_SITE_URL';
+                $configService->setDotEnvVar('PRIMARY_SITE_URL', $siteUrl);
+                $siteUrl = '$PRIMARY_SITE_URL';
             } catch (Exception $e) {
                 // that's fine, we'll just store the entered URL
             }
@@ -173,30 +191,22 @@ class InstallController extends Controller
             $migrator->addMigrationHistory($name);
         }
 
+        Console::ensureProjectConfigFileExists();
+
         return ExitCode::OK;
     }
 
     /**
-     * Installs a plugin
+     * Installs a plugin. (DEPRECATED -- use plugin/install instead.)
      *
      * @param string $handle
      * @return int
+     * @deprecated in 3.5.0. Use `plugin/uninstall` instead.
      */
     public function actionPlugin(string $handle): int
     {
-        $this->stdout("*** installing {$handle}" . PHP_EOL, Console::FG_YELLOW);
-        $start = microtime(true);
-
-        try {
-            Craft::$app->plugins->installPlugin($handle);
-        } catch (\Throwable $e) {
-            $this->stderr("*** failed to install {$handle}: {$e->getMessage()}" . PHP_EOL . PHP_EOL, Console::FG_RED);
-            return ExitCode::UNSPECIFIED_ERROR;
-        }
-
-        $time = sprintf('%.3f', microtime(true) - $start);
-        $this->stdout("*** installed {$handle} successfully (time: {$time}s)" . PHP_EOL . PHP_EOL, Console::FG_GREEN);
-        return ExitCode::OK;
+        Console::outputWarning("The install/plugin command is deprecated.\nRunning plugin/install instead...");
+        return Craft::$app->runAction('plugin/install', [$handle]);
     }
 
     /**
@@ -259,9 +269,6 @@ class InstallController extends Controller
         return $this->_validateSiteAttribute('language', $value, $error);
     }
 
-    // Private Methods
-    // =========================================================================
-
     private function _validateUserAttribute(string $attribute, $value, &$error): bool
     {
         $user = new User([$attribute => $value]);
@@ -282,27 +289,5 @@ class InstallController extends Controller
         }
         $error = null;
         return true;
-    }
-
-    private function _passwordPrompt(): string
-    {
-        // todo: would be nice to replace CliPrompt with a native Yii silent prompt
-        // (https://github.com/yiisoft/yii2/issues/10551)
-        top:
-        $this->stdout('Password: ');
-        if (($password = CliPrompt::hiddenPrompt(true)) === '') {
-            $this->stdout('Invalid input.' . PHP_EOL);
-            goto top;
-        }
-        if (!$this->validatePassword($password, $error)) {
-            Console::output($error);
-            goto top;
-        }
-        $this->stdout('Confirm: ');
-        if (!($matched = ($password === CliPrompt::hiddenPrompt(true)))) {
-            $this->stdout('Passwords didn\'t match, try again.' . PHP_EOL, Console::FG_RED);
-            goto top;
-        }
-        return $password;
     }
 }

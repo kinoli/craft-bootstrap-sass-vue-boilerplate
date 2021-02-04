@@ -1,10 +1,10 @@
-# The composer.json Schema
+# The composer.json schema
 
 This chapter will explain all of the fields available in `composer.json`.
 
 ## JSON schema
 
-We have a [JSON schema](http://json-schema.org) that documents the format and
+We have a [JSON schema](https://json-schema.org) that documents the format and
 can also be used to validate your `composer.json`. In fact, it is used by the
 `validate` command. You can find it at: https://getcomposer.org/schema.json
 
@@ -34,16 +34,16 @@ separated by `/`. Examples:
 * monolog/monolog
 * igorw/event-source
 
-The name can contain any character, including white spaces, and it's case
-insensitive (`foo/bar` and `Foo/Bar` are considered the same package). In order
-to simplify its installation, it's recommended to define a short and lowercase
-name that doesn't include non-alphanumeric characters or white spaces.
+The name must be lowercased and consist of words separated by `-`, `.` or `_`.
+The complete name should match `^[a-z0-9]([_.-]?[a-z0-9]+)*/[a-z0-9](([_.]?|-{0,2})[a-z0-9]+)*$`.
 
-Required for published packages (libraries).
+The `name` property is required for published packages (libraries).
+
+> **Note:** Before Composer version 2.0, a name could contain any character, including white spaces.
 
 ### description
 
-A short description of the package. Usually this is just one line long.
+A short description of the package. Usually this is one line long.
 
 Required for published packages (libraries).
 
@@ -88,7 +88,7 @@ installer capable of installing packages of that type.
 
 Out of the box, Composer supports four types:
 
-- **library:** This is the default. It will simply copy the files to `vendor`.
+- **library:** This is the default. It will copy the files to `vendor`.
 - **project:** This denotes a project rather than a library. For example
   application shells like the [Symfony standard edition](https://github.com/symfony/symfony-standard),
   CMSs like the [SilverStripe installer](https://github.com/silverstripe/silverstripe-installer)
@@ -104,7 +104,7 @@ Out of the box, Composer supports four types:
   [dedicated article](articles/custom-installers.md).
 
 Only use a custom type if you need custom logic during installation. It is
-recommended to omit this field and have it just default to `library`.
+recommended to omit this field and have it default to `library`.
 
 ### keywords
 
@@ -123,7 +123,13 @@ Optional.
 
 ### homepage
 
-An URL to the website of the project.
+A URL to the website of the project.
+
+Optional.
+
+### readme
+
+A relative path to the readme document.
 
 Optional.
 
@@ -145,10 +151,10 @@ The recommended notation for the most common licenses is (alphabetical):
 - BSD-2-Clause
 - BSD-3-Clause
 - BSD-4-Clause
-- GPL-2.0
-- GPL-3.0
-- LGPL-2.1
-- LGPL-3.0
+- GPL-2.0-only / GPL-2.0-or-later
+- GPL-3.0-only / GPL-3.0-or-later
+- LGPL-2.1-only / LGPL-2.1-or-later
+- LGPL-3.0-only / LGPL-3.0-or-later
 - MIT
 
 Optional, but it is highly recommended to supply this. More identifiers are
@@ -172,22 +178,22 @@ An Example for disjunctive licenses:
 ```json
 {
     "license": [
-       "LGPL-2.1",
-       "GPL-3.0+"
+       "LGPL-2.1-only",
+       "GPL-3.0-or-later"
     ]
 }
 ```
 
-Alternatively they can be separated with "or" and enclosed in parenthesis;
+Alternatively they can be separated with "or" and enclosed in parentheses;
 
 ```json
 {
-    "license": "(LGPL-2.1 or GPL-3.0+)"
+    "license": "(LGPL-2.1-only or GPL-3.0-or-later)"
 }
 ```
 
-Similarly when multiple licenses need to be applied ("conjunctive license"),
-they should be separated with "and" and enclosed in parenthesis.
+Similarly, when multiple licenses need to be applied ("conjunctive license"),
+they should be separated with "and" and enclosed in parentheses.
 
 ### authors
 
@@ -208,7 +214,7 @@ An example:
         {
             "name": "Nils Adermann",
             "email": "naderman@naderman.de",
-            "homepage": "http://www.naderman.de",
+            "homepage": "https://www.naderman.de",
             "role": "Developer"
         },
         {
@@ -237,6 +243,7 @@ Support information includes the following:
 * **source:** URL to browse or download the sources.
 * **docs:** URL to the documentation.
 * **rss:** URL to the RSS feed.
+* **chat:** URL to the chat channel.
 
 An example:
 
@@ -246,6 +253,39 @@ An example:
         "email": "support@example.org",
         "irc": "irc://irc.freenode.org/composer"
     }
+}
+```
+
+Optional.
+
+### funding
+
+A list of URLs to provide funding to the package authors for maintenance and
+development of new functionality.
+
+Each entry consists of the following
+
+* **type:** The type of funding, or the platform through which funding can be provided, e.g. patreon, opencollective, tidelift or github.
+* **url:** URL to a website with details, and a way to fund the package.
+
+An example:
+
+```json
+{
+    "funding": [
+        {
+            "type": "patreon",
+            "url": "https://www.patreon.com/phpdoctrine"
+        },
+        {
+            "type": "tidelift",
+            "url": "https://tidelift.com/subscription/pkg/packagist-doctrine_doctrine-bundle"
+        },
+        {
+            "type": "other",
+            "url": "https://www.doctrine-project.org/sponsorship.html"
+        }
+    ]
 }
 ```
 
@@ -269,10 +309,11 @@ Example:
 
 All links are optional fields.
 
-`require` and `require-dev` additionally support stability flags ([root-only](04-schema.md#root-package)).
+`require` and `require-dev` additionally support _stability flags_ ([root-only](04-schema.md#root-package)).
+They take the form "_constraint_@_stability flag_".
 These allow you to further restrict or expand the stability of a package beyond
 the scope of the [minimum-stability](#minimum-stability) setting. You can apply
-them to a constraint, or just apply them to an empty constraint if you want to
+them to a constraint, or apply them to an empty _constraint_ if you want to
 allow unstable packages of a dependency for example.
 
 Example:
@@ -307,7 +348,9 @@ releases for the `doctrine/data-fixtures` package :
 `require` and `require-dev` additionally support explicit references (i.e.
 commit) for dev versions to make sure they are locked to a given state, even
 when you run update. These only work if you explicitly require a dev version
-and append the reference with `#<ref>`.
+and append the reference with `#<ref>`. This is also a
+[root-only](04-schema.md#root-package) feature and will be ignored in
+dependencies.
 
 Example:
 
@@ -339,7 +382,7 @@ Example:
 ```json
 {
     "require" : {
-        "php" : "^5.5 || ^7.0",
+        "php" : ">=7.4",
         "ext-mbstring": "*"
     }
 }
@@ -399,14 +442,20 @@ that exact version, and not any other version, which would be incorrect.
 #### provide
 
 List of other packages that are provided by this package. This is mostly
-useful for common interfaces. A package could depend on some virtual
-`logger` package, any library that implements this logger interface would
-simply list it in `provide`.
+useful for implementations of common interfaces. A package could depend on
+some virtual `logger-implementation` package, any library that implements
+this logger interface would list it in `provide`.
+Using `provide` with the name of an actual package rather than a virtual one
+implies that the code of that package is also shipped, in which case `replace`
+is generally a better choice. A common convention for packages providing an
+interface and relying on other packages to provide an implementation (for
+instance the PSR interfaces) is to use a `-implementation` suffix for the
+name of the virtual package corresponding to the interface package.
 
 #### suggest
 
 Suggested packages that can enhance or work well with this package. These are
-just informational and are displayed after the package is installed, to give
+informational and are displayed after the package is installed, to give
 your users a hint that they could add more packages, even though they are not
 strictly required.
 
@@ -428,7 +477,7 @@ Example:
 
 Autoload mapping for a PHP autoloader.
 
-[`PSR-4`](http://www.php-fig.org/psr/psr-4/) and [`PSR-0`](http://www.php-fig.org/psr/psr-0/)
+[`PSR-4`](https://www.php-fig.org/psr/psr-4/) and [`PSR-0`](http://www.php-fig.org/psr/psr-0/)
 autoloading, `classmap` generation and `files` includes are supported.
 
 PSR-4 is the recommended way since it offers greater ease of use (no need
@@ -563,6 +612,18 @@ Example:
 {
     "autoload": {
         "classmap": ["src/", "lib/", "Something.php"]
+    }
+}
+```
+
+Wildcards (`*`) are also supported in a classmap paths, and expand to match any directory name:
+
+Example:
+
+```json
+{
+    "autoload": {
+        "classmap": ["src/addons/*/lib/", "3rd-party/*", "Something.php"]
     }
 }
 ```
@@ -711,7 +772,7 @@ Use `"prefer-stable": true` to enable.
 
 Custom package repositories to use.
 
-By default Composer just uses the packagist repository. By specifying
+By default Composer only uses the packagist repository. By specifying
 repositories you can get packages from elsewhere.
 
 Repositories are not resolved recursively. You can only add them to your main
@@ -720,18 +781,16 @@ ignored.
 
 The following repository types are supported:
 
-* **composer:** A Composer repository is simply a `packages.json` file served
+* **composer:** A Composer repository is a `packages.json` file served
   via the network (HTTP, FTP, SSH), that contains a list of `composer.json`
   objects with additional `dist` and/or `source` information. The `packages.json`
   file is loaded using a PHP stream. You can set extra options on that stream
   using the `options` parameter.
 * **vcs:** The version control system repository can fetch packages from git,
   svn, fossil and hg repositories.
-* **pear:** With this you can import any pear repository into your Composer
-  project.
 * **package:** If you depend on a project that does not have any support for
   composer whatsoever you can define the package inline using a `package`
-  repository. You basically just inline the `composer.json` object.
+  repository. You basically inline the `composer.json` object.
 
 For more information on any of these, see [Repositories](05-repositories.md).
 
@@ -756,10 +815,6 @@ Example:
         {
             "type": "vcs",
             "url": "https://github.com/Seldaek/monolog"
-        },
-        {
-            "type": "pear",
-            "url": "https://pear2.php.net"
         },
         {
             "type": "package",
@@ -840,6 +895,21 @@ A set of options for creating package archives.
 
 The following options are supported:
 
+* **name:** Allows configuring base name for archive.
+  By default (if not configured, and `--file` is not passed as command-line argument),
+  `preg_replace('#[^a-z0-9-_]#i', '-', name)` is used.
+
+Example:
+
+```json
+{
+    "name": "org/strangeName",
+    "archive": {
+        "name": "Strange_name"
+    }
+}
+```
+
 * **exclude:** Allows configuring a list of patterns for excluded paths. The
   pattern syntax matches .gitignore files. A leading exclamation mark (!) will
   result in any matching files to be included even if a previous pattern
@@ -861,6 +931,22 @@ The example will include `/dir/foo/bar/file`, `/foo/bar/baz`, `/file.php`,
 
 Optional.
 
+### abandoned
+
+Indicates whether this package has been abandoned.
+
+It can be boolean or a package name/URL pointing to a recommended alternative.
+
+Examples:
+
+Use `"abandoned": true` to indicates this package is abandoned.
+Use `"abandoned": "monolog/monolog"` to indicates this package is abandoned, and the
+recommended alternative is  `monolog/monolog`.
+
+Defaults to false.
+
+Optional.
+
 ### non-feature-branches
 
 A list of regex patterns of branch names that are non-numeric (e.g. "latest" or something),
@@ -869,7 +955,7 @@ that will NOT be handled as feature branches. This is an array of strings.
 If you have non-numeric branch names, for example like "latest", "current", "latest-stable"
 or something, that do not look like a version number, then Composer handles such branches
 as feature branches. This means it searches for parent branches, that look like a version
-or ends at special branches (like master) and the root package version number becomes the
+or ends at special branches (like master), and the root package version number becomes the
 version of the parent branch or at least master or something.
 
 To handle non-numeric named branches as versions instead of searching for a parent branch

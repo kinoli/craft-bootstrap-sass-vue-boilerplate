@@ -1,7 +1,10 @@
 {
   "require": {
-    "craftcms/cms": "3.4.19.1",
-    "vlucas/phpdotenv": "^2.4.0"
+    "craftcms/cms": "^3.5.10",
+    "vlucas/phpdotenv": "^3.4.0"
+  },
+  "require-dev": {
+    "yiisoft/yii2-shell": "^2.0.3"
   },
   "autoload": {
     "psr-4": {
@@ -9,9 +12,10 @@
     }
   },
   "config": {
+    "sort-packages": true,
     "optimize-autoloader": true,
     "platform": {
-      "php": "7.0"
+      "php": "7.2.5"
     }
   },
   "scripts": {

@@ -15,10 +15,12 @@ namespace Composer\Package\Loader;
 use Composer\Package\BasePackage;
 use Composer\Package\AliasPackage;
 use Composer\Config;
+use Composer\IO\IOInterface;
 use Composer\Package\RootPackageInterface;
 use Composer\Repository\RepositoryFactory;
 use Composer\Package\Version\VersionGuesser;
 use Composer\Package\Version\VersionParser;
+use Composer\Package\RootPackage;
 use Composer\Repository\RepositoryManager;
 use Composer\Util\ProcessExecutor;
 
@@ -46,13 +48,13 @@ class RootPackageLoader extends ArrayLoader
      */
     private $versionGuesser;
 
-    public function __construct(RepositoryManager $manager, Config $config, VersionParser $parser = null, VersionGuesser $versionGuesser = null)
+    public function __construct(RepositoryManager $manager, Config $config, VersionParser $parser = null, VersionGuesser $versionGuesser = null, IOInterface $io = null)
     {
         parent::__construct($parser);
 
         $this->manager = $manager;
         $this->config = $config;
-        $this->versionGuesser = $versionGuesser ?: new VersionGuesser($config, new ProcessExecutor(), $this->versionParser);
+        $this->versionGuesser = $versionGuesser ?: new VersionGuesser($config, new ProcessExecutor($io), $this->versionParser);
     }
 
     /**
@@ -65,13 +67,17 @@ class RootPackageLoader extends ArrayLoader
     {
         if (!isset($config['name'])) {
             $config['name'] = '__root__';
+        } elseif ($err = ValidatingArrayLoader::hasPackageNamingError($config['name'])) {
+            throw new \RuntimeException('Your package name '.$err);
         }
         $autoVersioned = false;
         if (!isset($config['version'])) {
             $commit = null;
 
-            // override with env var if available
-            if (getenv('COMPOSER_ROOT_VERSION')) {
+            if (isset($config['extra']['branch-version'])) {
+                $config['version'] = preg_replace('{(\.x)?(-dev)?$}', '', $config['extra']['branch-version']).'.x-dev';
+            } elseif (getenv('COMPOSER_ROOT_VERSION')) {
+                // override with env var if available
                 $config['version'] = getenv('COMPOSER_ROOT_VERSION');
             } else {
                 $versionData = $this->versionGuesser->guessVersion($config, $cwd ?: getcwd());
@@ -107,7 +113,7 @@ class RootPackageLoader extends ArrayLoader
         }
 
         if ($autoVersioned) {
-            $realPackage->replaceVersion($realPackage->getVersion(), 'No version set (parsed as 1.0.0)');
+            $realPackage->replaceVersion($realPackage->getVersion(), RootPackage::DEFAULT_PRETTY_VERSION);
         }
 
         if (isset($config['minimum-stability'])) {
@@ -128,12 +134,22 @@ class RootPackageLoader extends ArrayLoader
                 $aliases = $this->extractAliases($links, $aliases);
                 $stabilityFlags = $this->extractStabilityFlags($links, $stabilityFlags, $realPackage->getMinimumStability());
                 $references = $this->extractReferences($links, $references);
+
+                if (isset($links[$config['name']])) {
+                    throw new \RuntimeException(sprintf('Root package \'%s\' cannot require itself in its composer.json' . PHP_EOL .
+                                'Did you accidentally name your root package after an external package?', $config['name']));
+                }
             }
         }
 
-        if (isset($links[$config['name']])) {
-            throw new \InvalidArgumentException(sprintf('Root package \'%s\' cannot require itself in its composer.json' . PHP_EOL .
-                        'Did you accidentally name your root package after an external package?', $config['name']));
+        foreach (array_keys(BasePackage::$supportedLinkTypes) as $linkType) {
+            if (isset($config[$linkType])) {
+                foreach ($config[$linkType] as $linkName => $constraint) {
+                    if ($err = ValidatingArrayLoader::hasPackageNamingError($linkName, true)) {
+                        throw new \RuntimeException($linkType.'.'.$err);
+                    }
+                }
+            }
         }
 
         $realPackage->setAliases($aliases);
@@ -167,6 +183,8 @@ class RootPackageLoader extends ArrayLoader
                     'alias' => $match[2],
                     'alias_normalized' => $this->versionParser->normalize($match[2], $reqVersion),
                 );
+            } elseif (strpos($reqVersion, ' as ') !== false) {
+                throw new \UnexpectedValueException('Invalid alias definition in "'.$reqName.'": "'.$reqVersion.'". Aliases should be in the form "exact-version as other-exact-version".');
             }
         }
 
@@ -230,7 +248,7 @@ class RootPackageLoader extends ArrayLoader
     {
         foreach ($requires as $reqName => $reqVersion) {
             $reqVersion = preg_replace('{^([^,\s@]+) as .+$}', '$1', $reqVersion);
-            if (preg_match('{^[^,\s@]+?#([a-f0-9]+)$}', $reqVersion, $match) && 'dev' === ($stabilityName = VersionParser::parseStability($reqVersion))) {
+            if (preg_match('{^[^,\s@]+?#([a-f0-9]+)$}', $reqVersion, $match) && 'dev' === VersionParser::parseStability($reqVersion)) {
                 $name = strtolower($reqName);
                 $references[$name] = $match[1];
             }

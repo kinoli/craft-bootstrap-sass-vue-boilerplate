@@ -2,6 +2,8 @@
 
 A PHP library simplifying the conversion of unicode, HTML and shortcode emoji.
 
+![Run Tests](https://github.com/elvanto/litemoji/workflows/Run%20Tests/badge.svg)
+
 ## Installation
 
 ```

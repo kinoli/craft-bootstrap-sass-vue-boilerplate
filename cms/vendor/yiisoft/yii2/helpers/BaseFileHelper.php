@@ -50,6 +50,9 @@ class BaseFileHelper
      * - Turn multiple consecutive slashes into a single one (e.g. "/a///b/c" becomes "/a/b/c")
      * - Remove ".." and "." based on their meanings (e.g. "/a/./b/../c" becomes "/a/c")
      *
+     * Note: For registered stream wrappers, the consecutive slashes rule
+     * and ".."/"." translations are skipped.
+     *
      * @param string $path the file/directory path to be normalized
      * @param string $ds the directory separator to be used in the normalized result. Defaults to `DIRECTORY_SEPARATOR`.
      * @return string the normalized file/directory path
@@ -59,6 +62,12 @@ class BaseFileHelper
         $path = rtrim(strtr($path, '/\\', $ds . $ds), $ds);
         if (strpos($ds . $path, "{$ds}.") === false && strpos($path, "{$ds}{$ds}") === false) {
             return $path;
+        }
+        // fix #17235 stream wrappers
+        foreach (stream_get_wrappers() as $protocol) {
+            if (strpos($path, "{$protocol}://") === 0) {
+                return $path;
+            }
         }
         // the path may contain ".", ".." or double slashes, need to clean them up
         if (strpos($path, "{$ds}{$ds}") === 0 && $ds == '\\') {
@@ -415,6 +424,9 @@ class BaseFileHelper
             return unlink($path);
         } catch (ErrorException $e) {
             // last resort measure for Windows
+            if (is_dir($path) && count(static::findFiles($path)) !== 0) {
+                return false;
+            }
             if (function_exists('exec') && file_exists($path)) {
                 exec('DEL /F/Q ' . escapeshellarg($path));
 
@@ -688,7 +700,7 @@ class BaseFileHelper
     private static function matchPathname($path, $basePath, $pattern, $firstWildcard, $flags)
     {
         // match with FNM_PATHNAME; the pattern has base implicitly in front of it.
-        if (isset($pattern[0]) && $pattern[0] === '/') {
+        if (strpos($pattern, '/') === 0) {
             $pattern = StringHelper::byteSubstr($pattern, 1, StringHelper::byteLength($pattern));
             if ($firstWildcard !== false && $firstWildcard !== 0) {
                 $firstWildcard--;
@@ -775,8 +787,8 @@ class BaseFileHelper
      * Processes the pattern, stripping special characters like / and ! from the beginning and settings flags instead.
      * @param string $pattern
      * @param bool $caseSensitive
-     * @throws InvalidArgumentException
      * @return array with keys: (string) pattern, (int) flags, (int|bool) firstWildcard
+     * @throws InvalidArgumentException
      */
     private static function parseExcludePattern($pattern, $caseSensitive)
     {
@@ -794,11 +806,11 @@ class BaseFileHelper
             $result['flags'] |= self::PATTERN_CASE_INSENSITIVE;
         }
 
-        if (!isset($pattern[0])) {
+        if (empty($pattern)) {
             return $result;
         }
 
-        if ($pattern[0] === '!') {
+        if (strpos($pattern, '!') === 0) {
             $result['flags'] |= self::PATTERN_NEGATIVE;
             $pattern = StringHelper::byteSubstr($pattern, 1, StringHelper::byteLength($pattern));
         }
@@ -810,7 +822,7 @@ class BaseFileHelper
             $result['flags'] |= self::PATTERN_NODIR;
         }
         $result['firstWildcard'] = self::firstWildcardInPattern($pattern);
-        if ($pattern[0] === '*' && self::firstWildcardInPattern(StringHelper::byteSubstr($pattern, 1, StringHelper::byteLength($pattern))) === false) {
+        if (strpos($pattern, '*') === 0 && self::firstWildcardInPattern(StringHelper::byteSubstr($pattern, 1, StringHelper::byteLength($pattern))) === false) {
             $result['flags'] |= self::PATTERN_ENDSWITH;
         }
         $result['pattern'] = $pattern;

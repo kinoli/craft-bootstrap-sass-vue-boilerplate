@@ -11,6 +11,7 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Exception\RuntimeException as ProcessRuntimeException;
 use Symfony\Component\Process\Process;
 use yii\console\Controller;
+use yii\queue\ExecEvent;
 
 /**
  * Base Command.
@@ -142,7 +143,7 @@ abstract class Command extends Controller
      */
     public function actionExec($id, $ttr, $attempt, $pid)
     {
-        if ($this->queue->execute($id, file_get_contents('php://stdin'), $ttr, $attempt, $pid)) {
+        if ($this->queue->execute($id, file_get_contents('php://stdin'), $ttr, $attempt, $pid ?: null)) {
             return self::EXEC_DONE;
         }
         return self::EXEC_RETRY;
@@ -161,23 +162,24 @@ abstract class Command extends Controller
      */
     protected function handleMessage($id, $message, $ttr, $attempt)
     {
-        // Executes child process
-        $cmd = strtr('php yii queue/exec "id" "ttr" "attempt" "pid"', [
-            'php' => $this->phpBinary,
-            'yii' => $_SERVER['SCRIPT_FILENAME'],
-            'queue' => $this->uniqueId,
-            'id' => $id,
-            'ttr' => $ttr,
-            'attempt' => $attempt,
-            'pid' => $this->queue->getWorkerPid(),
-        ]);
+        // Child process command: php yii queue/exec "id" "ttr" "attempt" "pid"
+        $cmd = [
+            $this->phpBinary,
+            $_SERVER['SCRIPT_FILENAME'],
+            $this->uniqueId . '/exec',
+            $id,
+            $ttr,
+            $attempt,
+            $this->queue->getWorkerPid() ?: 0,
+        ];
+
         foreach ($this->getPassedOptions() as $name) {
             if (in_array($name, $this->options('exec'), true)) {
-                $cmd .= ' --' . $name . '=' . $this->$name;
+                $cmd[] = '--' . $name . '=' . $this->$name;
             }
         }
         if (!in_array('color', $this->getPassedOptions(), true)) {
-            $cmd .= ' --color=' . $this->isColorEnabled();
+            $cmd[] = '--color=' . $this->isColorEnabled();
         }
 
         $process = new Process($cmd, null, null, $message, $ttr);
@@ -194,8 +196,14 @@ abstract class Command extends Controller
             }
             return $result === self::EXEC_DONE;
         } catch (ProcessRuntimeException $error) {
-            $job = $this->queue->serializer->unserialize($message);
-            return $this->queue->handleError($id, $job, $ttr, $attempt, $error);
+            list($job) = $this->queue->unserializeMessage($message);
+            return $this->queue->handleError(new ExecEvent([
+                'id' => $id,
+                'job' => $job,
+                'ttr' => $ttr,
+                'attempt' => $attempt,
+                'error' => $error,
+            ]));
         }
     }
 }

@@ -2,11 +2,12 @@
 ========================
 
 .. versionadded:: 2.8
+
     The name argument was added in Twig 2.8.
 
 The ``template_from_string`` function loads a template from a string:
 
-.. code-block:: jinja
+.. code-block:: twig
 
     {{ include(template_from_string("Hello {{ name }}")) }}
     {{ include(template_from_string(page.template)) }}
@@ -14,7 +15,7 @@ The ``template_from_string`` function loads a template from a string:
 To ease debugging, you can also give the template a name that will be part of
 any related error message:
 
-.. code-block:: jinja
+.. code-block:: twig
 
     {{ include(template_from_string(page.template, "template for page " ~ page.name)) }}
 

@@ -8,7 +8,8 @@
 namespace craft\services;
 
 use Craft;
-use craft\base\Element;
+use craft\base\ElementInterface;
+use craft\base\MemoizableArray;
 use craft\db\Query;
 use craft\db\Table;
 use craft\elements\Asset;
@@ -24,6 +25,7 @@ use craft\events\SiteGroupEvent;
 use craft\helpers\App;
 use craft\helpers\ArrayHelper;
 use craft\helpers\Db;
+use craft\helpers\Queue;
 use craft\helpers\StringHelper;
 use craft\models\Site;
 use craft\models\SiteGroup;
@@ -39,6 +41,7 @@ use yii\db\Exception as DbException;
  * Sites service.
  * An instance of the Sites service is globally accessible in Craft via [[\craft\base\ApplicationTrait::getSites()|`Craft::$app->sites`]].
  *
+ * @property-read Site[] $allSites all of the sites
  * @property int[] $allSiteIds all of the site IDs
  * @property Site|null $currentSite the current site
  * @property int[] $editableSiteIds all of the site IDs that are editable by the current user
@@ -46,13 +49,10 @@ use yii\db\Exception as DbException;
  * @property int $totalSites the total number of sites
  * @property int $totalEditableSites the total number of sites that are editable by the current user
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Sites extends Component
 {
-    // Constants
-    // =========================================================================
-
     /**
      * @event SiteGroupEvent The event that is triggered before a site group is saved.
      */
@@ -70,6 +70,7 @@ class Sites extends Component
 
     /**
      * @event SiteGroupEvent The event that is triggered before a site group delete is applied to the database.
+     * @since 3.1.0
      */
     const EVENT_BEFORE_APPLY_GROUP_DELETE = 'beforeApplyGroupDelete';
 
@@ -112,6 +113,7 @@ class Sites extends Component
 
     /**
      * @event DeleteSiteEvent The event that is triggered before a site delete is applied to the database.
+     * @since 3.1.0
      */
     const EVENT_BEFORE_APPLY_SITE_DELETE = 'beforeApplySiteDelete';
 
@@ -123,11 +125,9 @@ class Sites extends Component
     const CONFIG_SITEGROUP_KEY = 'siteGroups';
     const CONFIG_SITES_KEY = 'sites';
 
-    // Properties
-    // =========================================================================
-
     /**
-     * @var SiteGroup[]
+     * @var MemoizableArray|null
+     * @see _groups()
      */
     private $_groups;
 
@@ -141,19 +141,13 @@ class Sites extends Component
      * @var Site[]
      * @see getSiteById()
      */
-    private $_sitesById;
+    private $_allSitesById;
 
     /**
      * @var Site[]
-     * @see getSiteByUid()
+     * @see getSiteById()
      */
-    private $_sitesByUid;
-
-    /**
-     * @var Site[]
-     * @see getSiteByHandle()
-     */
-    private $_sitesByHandle;
+    private $_enabledSitesById;
 
     /**
      * @var Site|null the current site
@@ -168,8 +162,17 @@ class Sites extends Component
      */
     private $_primarySite;
 
-    // Public Methods
-    // =========================================================================
+    /**
+     * Serializer
+     *
+     * @since 3.5.14
+     */
+    public function __serialize()
+    {
+        $vars = get_object_vars($this);
+        unset($vars['_groups']);
+        return $vars;
+    }
 
     /**
      * @inheritdoc
@@ -178,7 +181,7 @@ class Sites extends Component
     {
         // No technical reason to put this here, but it's sortof related
         if (defined('CRAFT_LOCALE')) {
-            Craft::$app->getDeprecator()->log('CRAFT_LOCALE', 'The CRAFT_LOCALE constant has been deprecated. Use CRAFT_SITE instead, which can be set to a site ID or handle.');
+            Craft::$app->getDeprecator()->log('CRAFT_LOCALE', 'The `CRAFT_LOCALE` constant has been deprecated. Use `CRAFT_SITE` instead, which can be set to a site ID or handle.');
         }
 
         // Load all the sites up front
@@ -189,24 +192,31 @@ class Sites extends Component
     // -------------------------------------------------------------------------
 
     /**
+     * Returns a memoizable array of all site groups.
+     *
+     * @return MemoizableArray
+     */
+    private function _groups(): MemoizableArray
+    {
+        if ($this->_groups === null) {
+            $groups = [];
+            foreach ($this->_createGroupQuery()->all() as $result) {
+                $groups[] = new SiteGroup($result);
+            }
+            $this->_groups = new MemoizableArray($groups);
+        }
+
+        return $this->_groups;
+    }
+
+    /**
      * Returns all site groups.
      *
      * @return SiteGroup[] The site groups
      */
     public function getAllGroups(): array
     {
-        if ($this->_groups !== null) {
-            return $this->_groups;
-        }
-
-        $this->_groups = [];
-        $results = $this->_createGroupQuery()->all();
-
-        foreach ($results as $result) {
-            $this->_groups[] = new SiteGroup($result);
-        }
-
-        return $this->_groups;
+        return $this->_groups()->all();
     }
 
     /**
@@ -217,7 +227,19 @@ class Sites extends Component
      */
     public function getGroupById(int $groupId)
     {
-        return ArrayHelper::firstWhere($this->getAllGroups(), 'id', $groupId);
+        return $this->_groups()->firstWhere('id', $groupId);
+    }
+
+    /**
+     * Returns a site group by its UID.
+     *
+     * @param string $uid The site group’s UID
+     * @return SiteGroup|null The site group, or null if it doesn’t exist
+     * @since 3.5.8
+     */
+    public function getGroupByUid(string $uid)
+    {
+        return $this->_groups()->firstWhere('uid', $uid, true);
     }
 
     /**
@@ -244,18 +266,15 @@ class Sites extends Component
             return false;
         }
 
-        $projectConfig = Craft::$app->getProjectConfig();
-        $configData = [
-            'name' => $group->name
-        ];
-
         if ($isNewGroup) {
             $group->uid = StringHelper::UUID();
         } else if (!$group->uid) {
             $group->uid = Db::uidById(Table::SITEGROUPS, $group->id);
         }
 
-        $projectConfig->set(self::CONFIG_SITEGROUP_KEY . '.' . $group->uid, $configData);
+        $configPath = self::CONFIG_SITEGROUP_KEY . '.' . $group->uid;
+        $configData = $group->getConfig();
+        Craft::$app->getProjectConfig()->set($configPath, $configData, "Save the “{$group->name}” site group");
 
         // Now that we have an ID, save it on the model
         if ($isNewGroup) {
@@ -385,7 +404,7 @@ class Sites extends Component
             ]));
         }
 
-        Craft::$app->getProjectConfig()->remove(self::CONFIG_SITEGROUP_KEY . '.' . $group->uid);
+        Craft::$app->getProjectConfig()->remove(self::CONFIG_SITEGROUP_KEY . '.' . $group->uid, "Delete the “{$group->name}” site group");
         return true;
     }
 
@@ -395,26 +414,29 @@ class Sites extends Component
     /**
      * Returns all of the site IDs.
      *
+     * @param bool|null $withDisabled
      * @return int[] All the sites’ IDs
      */
-    public function getAllSiteIds(): array
+    public function getAllSiteIds(bool $withDisabled = null): array
     {
-        return array_keys($this->_sitesById);
+        return ArrayHelper::getColumn($this->_allSites($withDisabled), 'id', false);
     }
 
     /**
      * Returns a site by it's UID.
      *
+     * @param string $uid
+     * @param bool|null $withDisabled
      * @return Site the site
      * @throws SiteNotFoundException if no sites exist
      */
-    public function getSiteByUid(string $uid): Site
+    public function getSiteByUid(string $uid, bool $withDisabled = null): Site
     {
-        if (!isset($this->_sitesByUid[$uid])) {
+        $site = ArrayHelper::firstWhere($this->_allSites($withDisabled), 'uid', $uid, true);
+        if ($site === null) {
             throw new SiteNotFoundException('Site with UID ”' . $uid . '“ not found!');
         }
-
-        return $this->_sitesByUid[$uid];
+        return $site;
     }
 
     /**
@@ -462,9 +484,9 @@ class Sites extends Component
         if ($site instanceof Site) {
             $this->_currentSite = $site;
         } else if (is_numeric($site)) {
-            $this->_currentSite = $this->getSiteById($site);
+            $this->_currentSite = $this->getSiteById($site, false);
         } else {
-            $this->_currentSite = $this->getSiteByHandle($site);
+            $this->_currentSite = $this->getSiteByHandle($site, false);
         }
 
         // Did something go wrong?
@@ -515,9 +537,10 @@ class Sites extends Component
         }
 
         $this->_editableSiteIds = [];
+        $userSession = Craft::$app->getUser();
 
         foreach ($this->getAllSites() as $site) {
-            if (Craft::$app->getUser()->checkPermission('editSite:' . $site->uid)) {
+            if ($userSession->checkPermission("editSite:$site->uid")) {
                 $this->_editableSiteIds[] = $site->id;
             }
         }
@@ -528,11 +551,12 @@ class Sites extends Component
     /**
      * Returns all sites.
      *
+     * @param bool|null $withDisabled
      * @return Site[] All the sites
      */
-    public function getAllSites(): array
+    public function getAllSites(bool $withDisabled = null): array
     {
-        return array_values($this->_sitesById);
+        return array_values($this->_allSites($withDisabled));
     }
 
     /**
@@ -558,17 +582,12 @@ class Sites extends Component
      * Returns sites by a group ID.
      *
      * @param int $groupId
+     * @param bool|null $withDisabled
      * @return Site[]
      */
-    public function getSitesByGroupId(int $groupId): array
+    public function getSitesByGroupId(int $groupId, bool $withDisabled = null): array
     {
-        $sites = [];
-
-        foreach ($this->getAllSites() as $site) {
-            if ($site->groupId == $groupId) {
-                $sites[] = $site;
-            }
-        }
+        $sites = ArrayHelper::where($this->_allSites($withDisabled), 'groupId', $groupId, false, false);
 
         // Using array_multisort threw a nesting error for no obvious reason, so don't use it here.
         ArrayHelper::multisort($sites, 'sortOrder', SORT_ASC, SORT_NUMERIC);
@@ -600,22 +619,24 @@ class Sites extends Component
      * Returns a site by its ID.
      *
      * @param int $siteId
+     * @param bool|null $withDisabled
      * @return Site|null
      */
-    public function getSiteById(int $siteId)
+    public function getSiteById(int $siteId, bool $withDisabled = null)
     {
-        return $this->_sitesById[$siteId] ?? null;
+        return $this->_allSites($withDisabled)[$siteId] ?? null;
     }
 
     /**
      * Returns a site by its handle.
      *
      * @param string $siteHandle
+     * @param bool|null $withDisabled
      * @return Site|null
      */
-    public function getSiteByHandle(string $siteHandle)
+    public function getSiteByHandle(string $siteHandle, bool $withDisabled = null)
     {
-        return $this->_sitesByHandle[$siteHandle] ?? null;
+        return ArrayHelper::firstWhere($this->_allSites($withDisabled), 'handle', $siteHandle, true);
     }
 
     /**
@@ -631,8 +652,7 @@ class Sites extends Component
     {
         $isNewSite = !$site->id;
 
-        if (!empty($this->_sitesById)) {
-            // Did the primary site just change?
+        if (!empty($this->_allSitesById)) {
             $oldPrimarySiteId = $this->getPrimarySite()->id;
         } else {
             $oldPrimarySiteId = null;
@@ -652,23 +672,9 @@ class Sites extends Component
             return false;
         }
 
-        $groupRecord = $this->_getGroupRecord($site->groupId);
-
-        $projectConfig = Craft::$app->getProjectConfig();
-        $configData = [
-            'siteGroup' => $groupRecord->uid,
-            'name' => $site->name,
-            'handle' => $site->handle,
-            'language' => $site->language,
-            'hasUrls' => (bool)$site->hasUrls,
-            'baseUrl' => $site->baseUrl,
-            'sortOrder' => (int)$site->sortOrder,
-            'primary' => (bool)$site->primary,
-        ];
-
         if ($isNewSite) {
             $site->uid = StringHelper::UUID();
-            $configData['sortOrder'] = ((int)(new Query())
+            $site->sortOrder = ((int)(new Query())
                     ->from([Table::SITES])
                     ->where(['dateDeleted' => null])
                     ->max('[[sortOrder]]')) + 1;
@@ -677,7 +683,8 @@ class Sites extends Component
         }
 
         $configPath = self::CONFIG_SITES_KEY . '.' . $site->uid;
-        $projectConfig->set($configPath, $configData);
+        $configData = $site->getConfig();
+        Craft::$app->getProjectConfig()->set($configPath, $configData, "Save the “{$site->handle}” site");
 
         // Now that we have a site ID, save it on the model
         if ($isNewSite) {
@@ -700,9 +707,9 @@ class Sites extends Component
         $groupUid = $data['siteGroup'];
 
         // Ensure we have the site group in place first
-        Craft::$app->getProjectConfig()->processConfigChanges(self::CONFIG_SITEGROUP_KEY . '.' . $groupUid);
+        $projectConfig = Craft::$app->getProjectConfig();
+        $projectConfig->processConfigChanges(self::CONFIG_SITEGROUP_KEY . '.' . $groupUid);
 
-        // Did the primary site just change?
         try {
             $oldPrimarySiteId = $this->getPrimarySite()->id;
         } catch (SiteNotFoundException $e) {
@@ -727,6 +734,11 @@ class Sites extends Component
             $siteRecord->primary = $data['primary'];
             $siteRecord->sortOrder = $data['sortOrder'];
 
+            // todo: remove schema version conditions after next beakpoint
+            if (version_compare(Craft::$app->getInstalledSchemaVersion(), '3.5.0', '>=')) {
+                $siteRecord->enabled = $data['enabled'] ?? true;
+            }
+
             if ($siteRecord->dateDeleted) {
                 $siteRecord->restore();
             } else {
@@ -740,7 +752,7 @@ class Sites extends Component
         }
 
         // Clear caches
-        $this->_refreshAllSites();
+        $this->refreshSites();
 
         /** @var Site $site */
         $site = $this->getSiteById($siteRecord->id);
@@ -761,39 +773,19 @@ class Sites extends Component
         }
 
         if ($isNewSite && $oldPrimarySiteId) {
-            // TODO: Move this code into element/category modules
-            // Create site settings for each of the category groups
-            $allSiteSettings = (new Query())
-                ->select(['groupId', 'uriFormat', 'template', 'hasUrls'])
-                ->from([Table::CATEGORYGROUPS_SITES])
-                ->where(['siteId' => $oldPrimarySiteId])
-                ->all();
+            $oldPrimarySiteUid = Db::uidById(Table::SITES, $oldPrimarySiteId);
+            $existingCategorySettings = $projectConfig->get(Categories::CONFIG_CATEGORYROUP_KEY);
 
-            if (!empty($allSiteSettings)) {
-                $newSiteSettings = [];
-
-                foreach ($allSiteSettings as $siteSettings) {
-                    $newSiteSettings[] = [
-                        $siteSettings['groupId'],
-                        $site->id,
-                        $siteSettings['uriFormat'],
-                        $siteSettings['template'],
-                        $siteSettings['hasUrls']
-                    ];
+            if (!$projectConfig->getIsApplyingYamlChanges() && is_array($existingCategorySettings)) {
+                foreach ($existingCategorySettings as $categoryUid => $settings) {
+                    $primarySiteSettings = $settings['siteSettings'][$oldPrimarySiteUid];
+                    $projectConfig->set(Categories::CONFIG_CATEGORYROUP_KEY . '.' . $categoryUid . '.siteSettings.' . $site->uid, $primarySiteSettings, 'Copy site settings for category groups');
                 }
-
-                Craft::$app->getDb()->createCommand()
-                    ->batchInsert(
-                        Table::CATEGORYGROUPS_SITES,
-                        ['groupId', 'siteId', 'uriFormat', 'template', 'hasUrls'],
-                        $newSiteSettings)
-                    ->execute();
             }
 
             // Re-save most localizable element types
             // (skip entries because they only support specific sites)
             // (skip Matrix blocks because they will be re-saved when their owners are re-saved).
-            $queue = Craft::$app->getQueue();
             $elementTypes = [
                 GlobalSet::class,
                 Asset::class,
@@ -802,12 +794,11 @@ class Sites extends Component
             ];
 
             foreach ($elementTypes as $elementType) {
-                $queue->push(new PropagateElements([
+                Queue::push(new PropagateElements([
                     'elementType' => $elementType,
                     'criteria' => [
                         'siteId' => $oldPrimarySiteId,
                         'status' => null,
-                        'enabledForSite' => false
                     ],
                     'siteId' => $site->id,
                 ]));
@@ -822,6 +813,9 @@ class Sites extends Component
                 'oldPrimarySiteId' => $oldPrimarySiteId,
             ]));
         }
+
+        // Invalidate all element caches
+        Craft::$app->getElements()->invalidateAllCaches();
     }
 
     /**
@@ -847,7 +841,7 @@ class Sites extends Component
         foreach ($siteIds as $sortOrder => $siteId) {
             if (!empty($uidsByIds[$siteId])) {
                 $siteUid = $uidsByIds[$siteId];
-                $projectConfig->set(self::CONFIG_SITES_KEY . '.' . $siteUid . '.sortOrder', $sortOrder + 1);
+                $projectConfig->set(self::CONFIG_SITES_KEY . '.' . $siteUid . '.sortOrder', $sortOrder + 1, 'Reorder sites');
             }
         }
 
@@ -935,12 +929,11 @@ class Sites extends Component
             if ($transferContentTo !== null) {
                 $transferContentToSite = $this->getSiteById($transferContentTo);
 
-                Craft::$app->getDb()->createCommand()
-                    ->update(
-                        Table::SECTIONS_SITES,
-                        ['siteId' => $transferContentTo],
-                        ['sectionId' => $soloSectionIds])
-                    ->execute();
+                Db::update(Table::SECTIONS_SITES, [
+                    'siteId' => $transferContentTo,
+                ], [
+                    'sectionId' => $soloSectionIds,
+                ]);
 
                 // Update the project config too
                 $muteEvents = $projectConfig->muteEvents;
@@ -948,7 +941,7 @@ class Sites extends Component
                 foreach ($projectConfig->get(Sections::CONFIG_SECTIONS_KEY) as $sectionUid => $sectionConfig) {
                     if (count($sectionConfig['siteSettings']) === 1 && isset($sectionConfig['siteSettings'][$site->uid])) {
                         $sectionConfig['siteSettings'][$transferContentToSite->uid] = ArrayHelper::remove($sectionConfig['siteSettings'], $site->uid);
-                        $projectConfig->set(Sections::CONFIG_SECTIONS_KEY . '.' . $sectionUid, $sectionConfig);
+                        $projectConfig->set(Sections::CONFIG_SECTIONS_KEY . '.' . $sectionUid, $sectionConfig, 'Prune site settings');
                     }
                 }
                 $projectConfig->muteEvents = $muteEvents;
@@ -961,48 +954,26 @@ class Sites extends Component
                     ->column();
 
                 if (!empty($entryIds)) {
-                    // Delete their template caches
-                    Craft::$app->getTemplateCaches()->deleteCachesByElementId($entryIds);
-
                     // Update the entry tables
-                    Craft::$app->getDb()->createCommand()
-                        ->update(
-                            Table::CONTENT,
-                            ['siteId' => $transferContentTo],
-                            ['elementId' => $entryIds])
-                        ->execute();
+                    Db::update(Table::CONTENT, [
+                        'siteId' => $transferContentTo,
+                    ], [
+                        'elementId' => $entryIds,
+                    ]);
 
-                    Craft::$app->getDb()->createCommand()
-                        ->update(
-                            Table::ELEMENTS_SITES,
-                            ['siteId' => $transferContentTo],
-                            ['elementId' => $entryIds])
-                        ->execute();
+                    Db::update(Table::ELEMENTS_SITES, [
+                        'siteId' => $transferContentTo,
+                    ], [
+                        'elementId' => $entryIds,
+                    ]);
 
-                    Craft::$app->getDb()->createCommand()
-                        ->update(
-                            Table::ENTRYDRAFTS,
-                            ['siteId' => $transferContentTo],
-                            ['entryId' => $entryIds])
-                        ->execute();
-
-                    Craft::$app->getDb()->createCommand()
-                        ->update(
-                            Table::ENTRYVERSIONS,
-                            ['siteId' => $transferContentTo],
-                            ['entryId' => $entryIds])
-                        ->execute();
-
-                    Craft::$app->getDb()->createCommand()
-                        ->update(
-                            Table::RELATIONS,
-                            ['sourceSiteId' => $transferContentTo],
-                            [
-                                'and',
-                                ['sourceId' => $entryIds],
-                                ['not', ['sourceSiteId' => null]]
-                            ])
-                        ->execute();
+                    Db::update(Table::RELATIONS, [
+                        'sourceSiteId' => $transferContentTo,
+                    ], [
+                        'and',
+                        ['sourceId' => $entryIds],
+                        ['not', ['sourceSiteId' => null]],
+                    ]);
 
                     // All the Matrix tables
                     $blockIds = (new Query())
@@ -1012,71 +983,43 @@ class Sites extends Component
                         ->column();
 
                     if (!empty($blockIds)) {
-                        Craft::$app->getDb()->createCommand()
-                            ->update(
-                                Table::MATRIXBLOCKS,
-                                ['ownerSiteId' => $transferContentTo],
-                                [
-                                    'and',
-                                    ['id' => $blockIds],
-                                    ['not', ['ownerSiteId' => null]]
-                                ])
-                            ->execute();
+                        Db::delete(Table::ELEMENTS_SITES, [
+                            'elementId' => $blockIds,
+                            'siteId' => $transferContentTo,
+                        ]);
 
-                        Craft::$app->getDb()->createCommand()
-                            ->delete(
-                                Table::ELEMENTS_SITES,
-                                [
-                                    'elementId' => $blockIds,
-                                    'siteId' => $transferContentTo
-                                ])
-                            ->execute();
-
-                        Craft::$app->getDb()->createCommand()
-                            ->update(
-                                Table::ELEMENTS_SITES,
-                                ['siteId' => $transferContentTo],
-                                [
-                                    'elementId' => $blockIds,
-                                    'siteId' => $site->id
-                                ])
-                            ->execute();
+                        Db::update(Table::ELEMENTS_SITES, [
+                            'siteId' => $transferContentTo,
+                        ], [
+                            'elementId' => $blockIds,
+                            'siteId' => $site->id,
+                        ]);
 
                         $matrixTablePrefix = Craft::$app->getDb()->getSchema()->getRawTableName('{{%matrixcontent_}}');
 
                         foreach (Craft::$app->getDb()->getSchema()->getTableNames() as $tableName) {
                             if (strpos($tableName, $matrixTablePrefix) === 0) {
-                                Craft::$app->getDb()->createCommand()
-                                    ->delete(
-                                        $tableName,
-                                        [
-                                            'elementId' => $blockIds,
-                                            'siteId' => $transferContentTo
-                                        ])
-                                    ->execute();
+                                Db::delete($tableName, [
+                                    'elementId' => $blockIds,
+                                    'siteId' => $transferContentTo,
+                                ]);
 
-                                Craft::$app->getDb()->createCommand()
-                                    ->update(
-                                        $tableName,
-                                        ['siteId' => $transferContentTo],
-                                        [
-                                            'elementId' => $blockIds,
-                                            'siteId' => $site->id
-                                        ])
-                                    ->execute();
+                                Db::update($tableName, [
+                                    'siteId' => $transferContentTo,
+                                ], [
+                                    'elementId' => $blockIds,
+                                    'siteId' => $site->id,
+                                ]);
                             }
                         }
 
-                        Craft::$app->getDb()->createCommand()
-                            ->update(
-                                Table::RELATIONS,
-                                ['sourceSiteId' => $transferContentTo],
-                                [
-                                    'and',
-                                    ['sourceId' => $blockIds],
-                                    ['not', ['sourceSiteId' => null]]
-                                ])
-                            ->execute();
+                        Db::update(Table::RELATIONS, [
+                            'sourceSiteId' => $transferContentTo,
+                        ], [
+                            'and',
+                            ['sourceId' => $blockIds],
+                            ['not', ['sourceSiteId' => null]],
+                        ]);
                     }
                 }
             } else {
@@ -1087,7 +1030,7 @@ class Sites extends Component
             }
         }
 
-        $projectConfig->remove(self::CONFIG_SITES_KEY . '.' . $site->uid);
+        $projectConfig->remove(self::CONFIG_SITES_KEY . '.' . $site->uid, "Delete the “{$site->handle}” site");
         return true;
     }
 
@@ -1132,7 +1075,10 @@ class Sites extends Component
         }
 
         // Refresh sites
-        $this->_refreshAllSites();
+        $this->refreshSites();
+
+        // Invalidate all element caches
+        Craft::$app->getElements()->invalidateAllCaches();
 
         // Was this the current site?
         if ($this->_currentSite !== null && $this->_currentSite->id == $site->id) {
@@ -1145,6 +1091,9 @@ class Sites extends Component
                 'site' => $site,
             ]));
         }
+
+        // Invalidate all element caches
+        Craft::$app->getElements()->invalidateAllCaches();
     }
 
     /**
@@ -1152,6 +1101,7 @@ class Sites extends Component
      *
      * @param int $id The site’s ID
      * @return bool Whether the site was restored successfully
+     * @since 3.1.0
      */
     public function restoreSiteById(int $id): bool
     {
@@ -1161,17 +1111,16 @@ class Sites extends Component
         return (bool)$affectedRows;
     }
 
-    // Private Methods
-    // =========================================================================
-
     /**
      * Refresh the status of all sites based on the DB data.
      *
      * @throws DbException
+     * @since 3.5.13
      */
-    private function _refreshAllSites()
+    public function refreshSites()
     {
-        $this->_sitesById = null;
+        $this->_allSitesById = null;
+        $this->_enabledSitesById = null;
         $this->_loadAllSites();
         Craft::$app->getIsMultiSite(true);
     }
@@ -1181,66 +1130,67 @@ class Sites extends Component
      */
     private function _loadAllSites()
     {
-        if ($this->_sitesById !== null) {
+        if ($this->_allSitesById !== null) {
             return;
         }
 
-        $this->_sitesById = [];
-        $this->_sitesByHandle = [];
-        $this->_sitesByUid = [];
+        $this->_allSitesById = [];
+        $this->_enabledSitesById = [];
 
         if (!Craft::$app->getIsInstalled()) {
             return;
         }
 
+        $schemaVersion = Craft::$app->getInstalledSchemaVersion();
+
+        $query = (new Query())
+            ->select([
+                's.id',
+                's.name',
+                's.handle',
+                's.language',
+                's.primary',
+                's.hasUrls',
+                's.baseUrl',
+                's.sortOrder',
+                's.uid',
+                's.dateCreated',
+                's.dateUpdated',
+            ])
+            ->from(['s' => Table::SITES]);
+
+        // TODO: remove the version checks after the next breakpoint
+        if (version_compare($schemaVersion, '3.0.74', '<')) {
+            $query
+                ->orderBy(['s.name' => SORT_ASC]);
+        } else {
+            $query
+                ->addSelect(['s.groupId'])
+                ->innerJoin(['sg' => Table::SITEGROUPS], '[[sg.id]] = [[s.groupId]]')
+                ->orderBy(['sg.name' => SORT_ASC, 's.sortOrder' => SORT_ASC]);
+
+            if (version_compare($schemaVersion, '3.1.7', '>=')) {
+                $query
+                    ->where(['s.dateDeleted' => null])
+                    ->andWhere(['sg.dateDeleted' => null]);
+
+                if (version_compare($schemaVersion, '3.5.12', '>=')) {
+                    $query
+                        ->addSelect(['s.enabled']);
+                }
+            }
+        }
+
         try {
-            $results = (new Query())
-                ->select([
-                    's.id',
-                    's.groupId',
-                    's.name',
-                    's.handle',
-                    'language',
-                    's.primary',
-                    's.hasUrls',
-                    's.baseUrl',
-                    's.sortOrder',
-                    's.uid',
-                ])
-                ->from(['{{%sites}} s'])
-                ->innerJoin('{{%sitegroups}} sg', '[[sg.id]] = [[s.groupId]]')
-                ->where(['s.dateDeleted' => null])
-                ->andWhere(['sg.dateDeleted' => null])
-                ->orderBy(['sg.name' => SORT_ASC, 's.sortOrder' => SORT_ASC])
-                ->all();
+            $results = $query->all();
         } catch (DbException $e) {
             // todo: remove this after the next breakpoint
             // If the error code is 42S02 (MySQL) or 42P01 (PostgreSQL), the sites table probably doesn't exist yet
             if (isset($e->errorInfo[0]) && in_array($e->errorInfo[0], ['42S02', '42P01'], true)) {
                 return;
             }
-            // If the error code is 42S22 (MySQL) or 42703 (PostgreSQL), then the sites table doesn't have a groupId or dateDeleted column yet
-            if (isset($e->errorInfo[0]) && in_array($e->errorInfo[0], ['42S22', '42703'], true)) {
-                $results = (new Query())
-                    ->select([
-                        's.id',
-                        's.name',
-                        's.handle',
-                        'language',
-                        's.primary',
-                        's.hasUrls',
-                        's.baseUrl',
-                        's.sortOrder',
-                        's.uid',
-                    ])
-                    ->from(['{{%sites}} s'])
-                    ->orderBy(['s.name' => SORT_ASC])
-                    ->all();
-            }
-            if (!isset($results)) {
-                /** @noinspection PhpUnhandledExceptionInspection */
-                throw $e;
-            }
+            /** @noinspection PhpUnhandledExceptionInspection */
+            throw $e;
         }
 
         // Check for results because during installation, the transaction hasn't been committed yet.
@@ -1249,13 +1199,15 @@ class Sites extends Component
 
             foreach ($results as $i => $result) {
                 $site = new Site($result);
-                $this->_sitesById[$site->id] = $site;
-                $this->_sitesByHandle[$site->handle] = $site;
-                $this->_sitesByUid[$site->uid] = $site;
+                $this->_allSitesById[$site->id] = $site;
+                if ($site->enabled) {
+                    $this->_enabledSitesById[$site->id] = $site;
+                }
 
                 if ($site->primary) {
                     $this->_primarySite = $site;
 
+                    // todo: remove in Craft 4
                     if (is_string($generalConfig->siteName)) {
                         $site->overrideName($generalConfig->siteName);
                     }
@@ -1264,6 +1216,7 @@ class Sites extends Component
                     }
                 }
 
+                // todo: remove in Craft 4
                 if (is_array($generalConfig->siteName) && isset($generalConfig->siteName[$site->handle])) {
                     $site->overrideName($generalConfig->siteName[$site->handle]);
                 }
@@ -1312,6 +1265,22 @@ class Sites extends Component
     }
 
     /**
+     * Returns all sites, or only enabled sites.
+     *
+     * @param bool|null $withDisabled
+     * @return Site[]
+     */
+    private function _allSites(bool $withDisabled = null)
+    {
+        if ($withDisabled === null) {
+            $request = Craft::$app->getRequest();
+            $withDisabled = !$request->getIsSiteRequest() || $request->getIsActionRequest();
+        }
+
+        return $withDisabled ? $this->_allSitesById : $this->_enabledSitesById;
+    }
+
+    /**
      * Gets a site record or creates a new one.
      *
      * @param mixed $criteria ID or UID of the site group.
@@ -1345,18 +1314,22 @@ class Sites extends Component
         $transaction = $db->beginTransaction();
 
         try {
-            $db->createCommand()
-                ->update(Table::SITES, ['primary' => false], ['id' => $oldPrimarySiteId])
-                ->execute();
-            $db->createCommand()
-                ->update(Table::SITES, ['primary' => true], ['id' => $newPrimarySiteId])
-                ->execute();
+            Db::update(Table::SITES, [
+                'primary' => false,
+            ], [
+                'id' => $oldPrimarySiteId,
+            ]);
+            Db::update(Table::SITES, [
+                'primary' => true,
+            ], [
+                'id' => $newPrimarySiteId,
+            ]);
 
             // Update all of the non-localized elements
             $nonLocalizedElementTypes = [];
 
             foreach (Craft::$app->getElements()->getAllElementTypes() as $elementType) {
-                /** @var Element|string $elementType */
+                /** @var ElementInterface|string $elementType */
                 if (!$elementType::isLocalized()) {
                     $nonLocalizedElementTypes[] = $elementType;
                 }
@@ -1378,23 +1351,17 @@ class Sites extends Component
                         ['not', ['siteId' => $oldPrimarySiteId]]
                     ];
 
-                    $db->createCommand()
-                        ->delete(Table::ELEMENTS_SITES, $deleteCondition)
-                        ->execute();
-                    $db->createCommand()
-                        ->delete(Table::CONTENT, $deleteCondition)
-                        ->execute();
+                    Db::delete(Table::ELEMENTS_SITES, $deleteCondition);
+                    Db::delete(Table::CONTENT, $deleteCondition);
+                    Db::delete(Table::SEARCHINDEX, $deleteCondition);
 
                     // Now swap the sites
                     $updateColumns = ['siteId' => $newPrimarySiteId];
                     $updateCondition = ['elementId' => $elementIds];
 
-                    $db->createCommand()
-                        ->update(Table::ELEMENTS_SITES, $updateColumns, $updateCondition)
-                        ->execute();
-                    $db->createCommand()
-                        ->update(Table::CONTENT, $updateColumns, $updateCondition)
-                        ->execute();
+                    Db::update(Table::ELEMENTS_SITES, $updateColumns, $updateCondition, [], false);
+                    Db::update(Table::CONTENT, $updateColumns, $updateCondition, [], false);
+                    Db::update(Table::SEARCHINDEX, $updateColumns, $updateCondition, [], false);
                 }
             }
 
@@ -1405,7 +1372,7 @@ class Sites extends Component
         }
 
         // Set the new primary site by forcing a reload from the DB.
-        $this->_refreshAllSites();
+        $this->refreshSites();
 
         // Fire an afterChangePrimarySite event
         if ($this->hasEventHandlers(self::EVENT_AFTER_CHANGE_PRIMARY_SITE)) {

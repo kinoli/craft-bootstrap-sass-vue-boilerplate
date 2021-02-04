@@ -3,7 +3,7 @@ const path = require('path')
 const merge = require('webpack-merge')
 const dev = require('./webpack.dev.js')
 
-const host = process.env.DB_SERVER
+const host = process.env.PRIMARY_SITE_URL
 
 module.exports = merge(dev, {
   devServer: {

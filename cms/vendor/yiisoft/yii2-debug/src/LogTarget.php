@@ -11,6 +11,7 @@ use Yii;
 use yii\base\InvalidConfigException;
 use yii\helpers\FileHelper;
 use yii\log\Target;
+use Opis\Closure;
 
 /**
  * The debug LogTarget is used to store logs for later use in the debugger tool
@@ -57,7 +58,12 @@ class LogTarget extends Target
         $exceptions = [];
         foreach ($this->module->panels as $id => $panel) {
             try {
-                $data[$id] = serialize($panel->save());
+                $panelData = $panel->save();
+                if ($id === 'profiling') {
+                    $summary['peakMemory'] = $panelData['memory'];
+                    $summary['processingTime'] = $panelData['time'];
+                }
+                $data[$id] = Closure\serialize($panelData);
             } catch (\Exception $exception) {
                 $exceptions[$id] = new FlattenException($exception);
             }
@@ -65,7 +71,7 @@ class LogTarget extends Target
         $data['summary'] = $summary;
         $data['exceptions'] = $exceptions;
 
-        file_put_contents($dataFile, serialize($data));
+        file_put_contents($dataFile, Closure\serialize($data));
         if ($this->module->fileMode !== null) {
             @chmod($dataFile, $this->module->fileMode);
         }
@@ -96,7 +102,7 @@ class LogTarget extends Target
             // error while reading index data, ignore and create new
             $manifest = [];
         } else {
-            $manifest = unserialize($manifest);
+            $manifest = Closure\unserialize($manifest);
         }
 
         $manifest[$this->tag] = $summary;
@@ -104,7 +110,7 @@ class LogTarget extends Target
 
         ftruncate($fp, 0);
         rewind($fp);
-        fwrite($fp, serialize($manifest));
+        fwrite($fp, Closure\serialize($manifest));
 
         @flock($fp, LOCK_UN);
         @fclose($fp);
@@ -152,6 +158,30 @@ class LogTarget extends Target
                     break;
                 }
             }
+            $this->removeStaleDataFiles($manifest);
+        }
+    }
+
+    /**
+     * Remove staled data files i.e. files that are not in the current index file
+     * (may happen because of corrupted or rotated index file)
+     *
+     * @param array $manifest
+     * @since 2.0.11
+     */
+    protected function removeStaleDataFiles($manifest)
+    {
+        $storageTags = array_map(
+            function ($file) {
+                return pathinfo($file, PATHINFO_FILENAME);
+            },
+            FileHelper::findFiles($this->module->dataPath, ['except' => ['index.data']])
+        );
+
+        $staledTags = array_diff($storageTags, array_keys($manifest));
+
+        foreach ($staledTags as $tag) {
+            @unlink($this->module->dataPath . "/$tag.data");
         }
     }
 

@@ -1,13 +1,27 @@
 php-shellcommand
 ===========
 
-[![Build Status](https://secure.travis-ci.org/mikehaertl/php-shellcommand.png)](http://travis-ci.org/mikehaertl/php-shellcommand)
-[![Latest Stable Version](https://poser.pugx.org/mikehaertl/php-shellcommand/v/stable.svg)](https://packagist.org/packages/mikehaertl/php-shellcommand)
-[![Total Downloads](https://poser.pugx.org/mikehaertl/php-shellcommand/downloads)](https://packagist.org/packages/mikehaertl/php-shellcommand)
-[![Latest Unstable Version](https://poser.pugx.org/mikehaertl/php-shellcommand/v/unstable.svg)](https://packagist.org/packages/mikehaertl/php-shellcommand)
-[![License](https://poser.pugx.org/mikehaertl/php-shellcommand/license.svg)](https://packagist.org/packages/mikehaertl/php-shellcommand)
+[![GitHub Tests](https://github.com/mikehaertl/php-shellcommand/workflows/Tests/badge.svg)](https://github.com/mikehaertl/php-shellcommand/actions)
+[![Packagist Version](https://img.shields.io/packagist/v/mikehaertl/php-shellcommand?label=version)](https://packagist.org/packages/mikehaertl/php-shellcommand)
+[![Packagist Downloads](https://img.shields.io/packagist/dt/mikehaertl/php-shellcommand)](https://packagist.org/packages/mikehaertl/php-shellcommand)
+[![GitHub license](https://img.shields.io/github/license/mikehaertl/php-shellcommand)](https://github.com/mikehaertl/php-shellcommand/blob/master/LICENSE)
+[![Packagist PHP Version Support](https://img.shields.io/packagist/php-v/mikehaertl/php-shellcommand)](https://packagist.org/packages/mikehaertl/php-shellcommand)
 
 php-shellcommand provides a simple object oriented interface to execute shell commands.
+
+## Installing
+
+### Prerequisites
+
+Your php version must be `5.4` or later.
+
+### Installing with composer
+
+This package can be installed easily using composer.
+
+```
+composer require mikehaertl/php-shellcommand
+```
 
 ## Features
 
@@ -79,6 +93,14 @@ $command->setStdIn('string');
     PHP working dir.
  * `$procEnv`: An array with environment variables to pass to `proc_open()`. Default is `null` for none.
  * `$procOptions`: An array of `other_options` for `proc_open()`. Default is `null` for none.
+ * `$nonBlockingMode`: Whether to set the stdin/stdout/stderr streams to non-blocking
+    mode when `proc_open()` is used. This allows to have huge inputs/outputs
+    without making the process hang. The default is `null` which will enable
+    the feature on Non-Windows systems. Set it to `true` or `false` to manually
+    enable/disable it. Note that it doesn't work on Windows.
+ * `$timeout`: The time in seconds after which the command should be
+    terminated. This only works in non-blocking mode. Default is `null` which
+    means the process is never terminated.
  * `$locale`: The locale to (temporarily) set with `setlocale()` before running the command.
    This can be set to e.g. `en_US.UTF-8` if you have issues with UTF-8 encoded arguments.
 

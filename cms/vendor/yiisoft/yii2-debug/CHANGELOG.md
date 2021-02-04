@@ -1,6 +1,93 @@
 Yii Framework 2 debug extension Change Log
 ==========================================
 
+2.1.16 December 23, 2020
+------------------------
+
+- Bug #446: Fix bug with simple action config detection (bizley)
+- Bug #449: Fix bug with scanned controllers being unnecessarily initiated (bizley)
+- Enh #441: Added PHP 7.4 and 8.0 compatibility for tests (bizley)
+
+
+2.1.15 November 13, 2020
+------------------------
+
+- Bug #443: Fix bug with fetching wrong URL rule name (bizley)
+
+
+2.1.14 November 10, 2020
+------------------------
+
+- Bug #434: Toolbar logo could have the wrong size (brandonkelly)
+- Enh #428: Extra routing data in Router panel (bizley)
+- Enh #433: Add ability for toolbar to skip URLs of AJAX requests from being displayed (naduvko)
+
+
+2.1.13 January 17, 2020
+-----------------------
+
+- Bug #427: Fix missing import yii\helpers\Html in DumpPanel (zhukovra)
+
+
+2.1.12 November 19, 2019
+------------------------
+
+- Bug #424: Fixes missing timeline panel tooltips (My6UoT9)
+- Enh #425: Add warning message related to `traceLevel` on db panel (kjusupov)
+
+
+2.1.11 November 05, 2019
+------------------------
+
+- Bug #325: Remove staled data files i.e. files that are not in the current index file (zhukovra)
+- Bug #329: Fix logging AJAX request if URL has domain (zhukovra)
+- Bug #423: Fix duplicated toolbar when loading the iframe from a different origin (My6UoT9, samdark)
+- Enh #202: Add buttons for navigation between requests (zhukovra)
+
+
+2.1.10 October 22, 2019
+-----------------------
+
+- Enh #412: Improved layout of the Logs panel (machour, pistej)
+
+
+2.1.9 September 18, 2019
+------------------------
+
+- Bug #409: Fixed "Since previous" column's value calculation (Ir00man)
+
+
+2.1.8 August 20, 2019
+---------------------
+
+- Bug #333: Ignore normalizer in debug bar URL rules (simialbi)
+- Bug #347: Fixed "Cannot read property 'addEventListener' of null" bug of user switch (simialbi)
+
+
+2.1.7 July 30, 2019
+-------------------
+
+- Bug #401: Partial revert of #390, use var dumper on dump panel as serializer to deal with closures in SPL Objects (Sarke)
+- Bug #404: Fix insufficient data escaping in debugger views (0xbug, Artem Myshenkov, samdark)
+- Enh #40: Add "since previous" and sequential number to "logs" panel detail view (Deele, samdark)
+
+
+2.1.6 July 23, 2019
+-------------------
+
+- Enh #167: Add total request processing time and peak memory consumption on index page (pistej)
+- Enh #379: Better error message when no debug data is found (Sarke)
+- Enh #380: Enhanced browser compatibility (samdark)
+- Enh #390: Use opis/closure to serialize data (Sarke)
+- Enh #392: Add `tracePathMappings` property to module (Sarke)
+
+
+2.1.5 June 04, 2019
+-------------------
+
+- Enh #391: Dispatching event when toolbar is added to DOM, and added class that allows clicks in toolbar block (rhertogh)
+
+
 2.1.4 May 14, 2019
 ------------------
 

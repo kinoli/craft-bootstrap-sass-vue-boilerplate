@@ -4,7 +4,7 @@ As I discover new technologies, I find my boilerplates evolving and getting bett
 
 ## How it works
 
-This boilerplate is setup using Webpack to devlop on a local server (I use Mamp, but you can use whatever you want). the *dev* script will allow you to hot reload your changes, it will output files to the */dev* directory, which is where your local server should point its root to. 
+This boilerplate is setup using Webpack to devlop on a local server (I use Mamp, but you can use whatever you want). the *dev* script will allow you to hot reload your changes, it will output files to the */dev* directory, which is where your local server should point its root to.
 
 The *build* script will output all production files to the */public_html* directory. Included is a VSCode sftp configuration that is setup to automagically ftp any updates to that */build* directory into your server. You will need to configure that. Read below for full instructions.
 
@@ -72,7 +72,14 @@ If you’re given a choice, we recommend the following database settings in most
   - Character Set: `UTF8`
 
 ## 4. Set up the Web Server
+Here are some suggested local server environments you can use.
+### DOCKER
+You need to have Docker installed if you want to run through it. Edit docker-compose.yml as you see fit then run this to fire it up.
+```
+docker-compose up -d
+```
 
+### MAMP
 Create a new web server to host your Craft project. Its document root should point to the `dev/` folder.
 
 If you’re not using MAMP, you will probably need to update your `hosts` file, so your computer knows to route requests to your chosen host name to the local computer.

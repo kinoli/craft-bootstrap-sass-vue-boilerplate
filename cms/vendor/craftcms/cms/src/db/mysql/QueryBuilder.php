@@ -15,7 +15,7 @@ use yii\base\NotSupportedException;
  * @inheritdoc
  * @property Connection $db Connection the DB connection that this command is associated with.
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class QueryBuilder extends \yii\db\mysql\QueryBuilder
 {
@@ -119,6 +119,34 @@ class QueryBuilder extends \yii\db\mysql\QueryBuilder
             $sql .= ',' . $this->db->quoteValue($value);
         }
         $sql .= ')';
+
+        return $sql;
+    }
+
+    /**
+     * Builds the SQL expression used to delete duplicate rows from a table.
+     *
+     * @param string $table The table to be updated.
+     * @param string[] $columns The column names that contain duplicate data
+     * @param string $pk The primary key column name
+     * @return string The SQL expression
+     * @since 3.5.2
+     */
+    public function deleteDuplicates(string $table, array $columns, string $pk = 'id'): string
+    {
+        $table = $this->db->quoteTableName($table);
+        $pk = $this->db->quoteColumnName($pk);
+        $a = $this->db->quoteColumnName('a');
+        $b = $this->db->quoteColumnName('b');
+
+        $sql = "DELETE $a FROM $table $a" .
+            " INNER JOIN $table $b" .
+            " WHERE $a.$pk > $b.$pk";
+
+        foreach ($columns as $column) {
+            $column = $this->db->quoteColumnName($column);
+            $sql .= " AND $a.$column = $b.$column";
+        }
 
         return $sql;
     }

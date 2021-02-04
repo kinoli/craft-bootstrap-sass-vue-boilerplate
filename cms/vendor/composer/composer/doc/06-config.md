@@ -5,9 +5,24 @@ This chapter will describe the `config` section of the `composer.json`
 
 ## process-timeout
 
-Defaults to `300`. The duration processes like git clones can run before
+The timeout in seconds for process executions, defaults to 300 (5mins).
+The duration processes like git clones can run before
 Composer assumes they died out. You may need to make this higher if you have a
 slow connection or huge vendors.
+
+To disable the process timeout on a custom command under `scripts`, a static
+helper is available:
+
+```json
+{
+    "scripts": {
+        "test": [
+            "Composer\\Config::disableProcessTimeout",
+            "phpunit"
+        ]
+    }
+}
+```
 
 ## use-include-path
 
@@ -57,28 +72,40 @@ URL.
 A list of domain names and oauth keys. For example using `{"github.com":
 "oauthtoken"}` as the value of this option will use `oauthtoken` to access
 private repositories on github and to circumvent the low IP-based rate limiting
-of their API. [Read
-more](articles/troubleshooting.md#api-rate-limit-and-oauth-tokens) on how to get
-an OAuth token for GitHub.
+of their API. Composer may prompt for credentials when needed, but these can also be
+manually set. Read more on how to get an OAuth token for GitHub and cli syntax
+[here](articles/authentication-for-private-packages.md#github-oauth).
 
 ## gitlab-oauth
 
 A list of domain names and oauth keys. For example using `{"gitlab.com":
 "oauthtoken"}` as the value of this option will use `oauthtoken` to access
-private repositories on gitlab.
+private repositories on gitlab. Please note: If the package is not hosted at
+gitlab.com the domain names must be also specified with the
+[`gitlab-domains`](06-config.md#gitlab-domains) option.
+Further info can also be found [here](articles/authentication-for-private-packages.md#gitlab-oauth)
 
 ## gitlab-token
 
-A list of domain names and private tokens. For example using `{"gitlab.com":
+A list of domain names and private tokens. Private token can be either simple
+string, or array with username and token. For example using `{"gitlab.com":
 "privatetoken"}` as the value of this option will use `privatetoken` to access
-private repositories on gitlab.
+private repositories on gitlab. Using `{"gitlab.com": {"username": "gitlabuser",
+ "token": "privatetoken"}}` will use both username and token for gitlab deploy
+token functionality (https://docs.gitlab.com/ee/user/project/deploy_tokens/)
+Please note: If the package is not hosted at
+gitlab.com the domain names must be also specified with the
+[`gitlab-domains`](06-config.md#gitlab-domains) option. The token must have
+`api` or `read_api` scope.
+Further info can also be found [here](articles/authentication-for-private-packages.md#gitlab-token)
 
 ## disable-tls
 
 Defaults to `false`. If set to true all HTTPS URLs will be tried with HTTP
 instead and no network level encryption is performed. Enabling this is a
 security risk and is NOT recommended. The better way is to enable the
-php_openssl extension in php.ini.
+php_openssl extension in php.ini. Enabling this will implicitly disable the
+`secure-http` option.
 
 ## secure-http
 
@@ -90,8 +117,8 @@ get a free SSL certificate is generally a better alternative.
 ## bitbucket-oauth
 
 A list of domain names and consumers. For example using `{"bitbucket.org":
-{"consumer-key": "myKey", "consumer-secret": "mySecret"}}`. [Read](https://confluence.atlassian.com/bitbucket/oauth-on-bitbucket-cloud-238027431.html)
-how to set up a consumer on Bitbucket.
+{"consumer-key": "myKey", "consumer-secret": "mySecret"}}`.
+Read more [here](articles/authentication-for-private-packages.md#bitbucket-oauth).
 
 ## cafile
 
@@ -110,17 +137,34 @@ capath must be a correctly hashed certificate directory.
 A list of domain names and username/passwords to authenticate against them. For
 example using `{"example.org": {"username": "alice", "password": "foo"}}` as the
 value of this option will let Composer authenticate against example.org.
+More info can be found [here](articles/authentication-for-private-packages.md#http-basic).
 
-> **Note:** Authentication-related config options like `http-basic` and
-> `github-oauth` can also be specified inside a `auth.json` file that goes
-> besides your `composer.json`. That way you can gitignore it and every
-> developer can place their own credentials in there.
+## bearer
+
+A list of domain names and tokens to authenticate against them. For example using
+`{"example.org": "foo"}` as the value of this option will let Composer authenticate
+against example.org using an `Authorization: Bearer foo` header.
 
 ## platform
 
 Lets you fake platform packages (PHP and extensions) so that you can emulate a
 production env or define your target platform in the config. Example: `{"php":
-"5.4", "ext-something": "4.0"}`.
+"7.0.3", "ext-something": "4.0.3"}`.
+
+This will make sure that no package requiring more than PHP 7.0.3 can be installed
+regardless of the actual PHP version you run locally. However it also means
+the dependencies are not checked correctly anymore, if you run PHP 5.6 it will
+install fine as it assumes 7.0.3, but then it will fail at runtime.
+
+Therefore if you use this it is recommended, and safer, to also run the
+[`check-platform-reqs`](03-cli.md#check-platform-reqs) command as part of your
+deployment strategy.
+
+If a dependency requires some extension that you do not have installed locally
+you may ignore it instead by passing `--ignore-platform-req=ext-foo` to `update`,
+`install` or `require`. In the long run though you should install required
+extensions as if you ignore one now and a new package you add a month later also
+requires it, you may introduce issues in production unknowingly.
 
 ## vendor-dir
 
@@ -164,17 +208,21 @@ metadata for the `git`/`hg` types and to speed up installs.
 
 ## cache-files-ttl
 
-Defaults to `15552000` (6 months). Composer caches all dist (zip, tar, ..)
+Defaults to `15552000` (6 months). Composer caches all dist (zip, tar, ...)
 packages that it downloads. Those are purged after six months of being unused by
 default. This option allows you to tweak this duration (in seconds) or disable
 it completely by setting it to 0.
 
 ## cache-files-maxsize
 
-Defaults to `300MiB`. Composer caches all dist (zip, tar, ..) packages that it
+Defaults to `300MiB`. Composer caches all dist (zip, tar, ...) packages that it
 downloads. When the garbage collection is periodically ran, this is the maximum
 size the cache will be able to use. Older (less used) files will be removed
 first until the cache fits.
+
+## cache-read-only
+
+Defaults to `false`. Whether to use the Composer cache in read-only mode.
 
 ## bin-compat
 
@@ -230,11 +278,19 @@ github API will have a date instead of the machine hostname.
 Defaults to `["gitlab.com"]`. A list of domains of GitLab servers.
 This is used if you use the `gitlab` repository type.
 
+## use-github-api
+
+Defaults to `true`.  Similar to the `no-api` key on a specific repository,
+setting `use-github-api` to `false` will define the global behavior for all
+GitHub repositories to clone the repository as it would with any other git
+repository instead of using the GitHub API. But unlike using the `git`
+driver directly, Composer will still attempt to use GitHub's zip files.
+
 ## notify-on-install
 
 Defaults to `true`. Composer allows repositories to define a notification URL,
 so that they get notified whenever a package from that repository is installed.
-This option allows you to disable that behaviour.
+This option allows you to disable that behavior.
 
 ## discard-changes
 
@@ -246,14 +302,12 @@ scripts if you tend to have modified vendors.
 
 ## archive-format
 
-Defaults to `tar`. Composer allows you to add a default archive format when the
-workflow needs to create a dedicated archiving format.
+Defaults to `tar`. Overrides the default format used by the archive command.
 
 ## archive-dir
 
-Defaults to `.`. Composer allows you to add a default archive directory when the
-workflow needs to create a dedicated archiving format. Or for easier development
-between modules.
+Defaults to `.`. Default destination for archives created by the archive
+command.
 
 Example:
 
@@ -270,4 +324,15 @@ Example:
 Defaults to `true`. If set to `false`, Composer will not create `.htaccess` files
 in the composer home, cache, and data directories.
 
-&larr; [Repositories](05-repositories.md)  |  [Community](07-community.md) &rarr;
+## lock
+
+Defaults to `true`. If set to `false`, Composer will not create a `composer.lock`
+file.
+
+## platform-check
+
+Defaults to `php-only` which only checks the PHP version. Set to `true` to also
+check the presence of extension. If set to `false`, Composer will not create and
+require a `platform_check.php` file as part of the autoloader bootstrap.
+
+&larr; [Repositories](05-repositories.md)  |  [Runtime](07-runtime.md) &rarr;

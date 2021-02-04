@@ -64,6 +64,11 @@ class Svn
     protected $config;
 
     /**
+     * @var string|null
+     */
+    private static $version;
+
+    /**
      * @param string                   $url
      * @param \Composer\IO\IOInterface $io
      * @param Config                   $config
@@ -74,7 +79,7 @@ class Svn
         $this->url = $url;
         $this->io = $io;
         $this->config = $config;
-        $this->process = $process ?: new ProcessExecutor;
+        $this->process = $process ?: new ProcessExecutor($io);
     }
 
     public static function cleanEnv()
@@ -102,9 +107,7 @@ class Svn
         // Ensure we are allowed to use this URL by config
         $this->config->prohibitUrlByConfig($url, $this->io);
 
-        $svnCommand = $this->getCommand($command, $url, $path);
-
-        return $this->executeWithAuthRetry($svnCommand, $cwd, $path, $verbose);
+        return $this->executeWithAuthRetry($command, $cwd, $url, $path, $verbose);
     }
 
     /**
@@ -121,25 +124,22 @@ class Svn
      */
     public function executeLocal($command, $path, $cwd = null, $verbose = false)
     {
-        $svnCommand = sprintf('%s %s%s %s',
-            $command,
-            '--non-interactive ',
-            $this->getCredentialString(),
-            ProcessExecutor::escape($path)
-        );
-
-        return $this->executeWithAuthRetry($svnCommand, $cwd, $path, $verbose);
+        // A local command has no remote url
+        return $this->executeWithAuthRetry($command, $cwd, '', $path, $verbose);
     }
 
-    private function executeWithAuthRetry($command, $cwd, $path, $verbose)
+    private function executeWithAuthRetry($svnCommand, $cwd, $url, $path, $verbose)
     {
+        // Regenerate the command at each try, to use the newly user-provided credentials
+        $command = $this->getCommand($svnCommand, $url, $path);
+
         $output = null;
         $io = $this->io;
         $handler = function ($type, $buffer) use (&$output, $io, $verbose) {
             if ($type !== 'out') {
                 return;
             }
-            if ('Redirecting to URL ' === substr($buffer, 0, 19)) {
+            if (strpos($buffer, 'Redirecting to URL ') === 0) {
                 return;
             }
             $output .= $buffer;
@@ -170,7 +170,7 @@ class Svn
         // try to authenticate if maximum quantity of tries not reached
         if ($this->qtyAuthTries++ < self::MAX_QTY_AUTH_TRIES) {
             // restart the process
-            return $this->executeWithAuthRetry($command, $cwd, $path, $verbose);
+            return $this->executeWithAuthRetry($svnCommand, $cwd, $url, $path, $verbose);
         }
 
         throw new \RuntimeException(
@@ -207,7 +207,7 @@ class Svn
         $this->credentials['username'] = $this->io->ask("Username: ");
         $this->credentials['password'] = $this->io->askAndHideAnswer("Password: ");
 
-        $this->cacheCredentials = $this->io->askConfirmation("Should Subversion cache these credentials? (yes/no) ", true);
+        $this->cacheCredentials = $this->io->askConfirmation("Should Subversion cache these credentials? (yes/no) ");
 
         return $this;
     }
@@ -223,7 +223,8 @@ class Svn
      */
     protected function getCommand($cmd, $url, $path = null)
     {
-        $cmd = sprintf('%s %s%s %s',
+        $cmd = sprintf(
+            '%s %s%s %s',
             $cmd,
             '--non-interactive ',
             $this->getCredentialString(),
@@ -303,7 +304,7 @@ class Svn
             $this->createAuthFromUrl();
         }
 
-        return $this->hasAuth;
+        return (bool) $this->hasAuth;
     }
 
     /**
@@ -358,5 +359,23 @@ class Svn
         }
 
         return $this->hasAuth = true;
+    }
+
+    /**
+     * Returns the version of the svn binary contained in PATH
+     *
+     * @return string|null
+     */
+    public function binaryVersion()
+    {
+        if (!self::$version) {
+            if (0 === $this->process->execute('svn --version', $output)) {
+                if (preg_match('{(\d+(?:\.\d+)+)}', $output, $match)) {
+                    self::$version = $match[1];
+                }
+            }
+        }
+
+        return self::$version;
     }
 }

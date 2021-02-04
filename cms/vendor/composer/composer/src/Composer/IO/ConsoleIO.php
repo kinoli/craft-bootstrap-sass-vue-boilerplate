@@ -14,6 +14,7 @@ namespace Composer\IO;
 
 use Composer\Question\StrictConfirmationQuestion;
 use Symfony\Component\Console\Helper\HelperSet;
+use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -130,12 +131,28 @@ class ConsoleIO extends BaseIO
     }
 
     /**
+     * {@inheritDoc}
+     */
+    public function writeRaw($messages, $newline = true, $verbosity = self::NORMAL)
+    {
+        $this->doWrite($messages, $newline, false, $verbosity, true);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function writeErrorRaw($messages, $newline = true, $verbosity = self::NORMAL)
+    {
+        $this->doWrite($messages, $newline, true, $verbosity, true);
+    }
+
+    /**
      * @param array|string $messages
      * @param bool         $newline
      * @param bool         $stderr
      * @param int          $verbosity
      */
-    private function doWrite($messages, $newline, $stderr, $verbosity)
+    private function doWrite($messages, $newline, $stderr, $verbosity, $raw = false)
     {
         $sfVerbosity = $this->verbosityMap[$verbosity];
         if ($sfVerbosity > $this->output->getVerbosity()) {
@@ -149,11 +166,19 @@ class ConsoleIO extends BaseIO
             $sfVerbosity = OutputInterface::OUTPUT_NORMAL;
         }
 
+        if ($raw) {
+            if ($sfVerbosity === OutputInterface::OUTPUT_NORMAL) {
+                $sfVerbosity = OutputInterface::OUTPUT_RAW;
+            } else {
+                $sfVerbosity |= OutputInterface::OUTPUT_RAW;
+            }
+        }
+
         if (null !== $this->startTime) {
             $memoryUsage = memory_get_usage() / 1024 / 1024;
             $timeSpent = microtime(true) - $this->startTime;
             $messages = array_map(function ($message) use ($memoryUsage, $timeSpent) {
-                return sprintf('[%.1fMB/%.2fs] %s', $memoryUsage, $timeSpent, $message);
+                return sprintf('[%.1fMiB/%.2fs] %s', $memoryUsage, $timeSpent, $message);
             }, (array) $messages);
         }
 
@@ -230,6 +255,15 @@ class ConsoleIO extends BaseIO
     }
 
     /**
+     * @param  int         $max
+     * @return ProgressBar
+     */
+    public function getProgressBar($max = 0)
+    {
+        return new ProgressBar($this->getErrorOutput(), $max);
+    }
+
+    /**
      * {@inheritDoc}
      */
     public function ask($question, $default = null)
@@ -272,9 +306,12 @@ class ConsoleIO extends BaseIO
      */
     public function askAndHideAnswer($question)
     {
-        $this->writeError($question, false);
+        /** @var \Symfony\Component\Console\Helper\QuestionHelper $helper */
+        $helper = $this->helperSet->get('question');
+        $question = new Question($question);
+        $question->setHidden(true);
 
-        return \Seld\CliPrompt\CliPrompt::hiddenPrompt(true);
+        return $helper->ask($this->input, $this->getErrorOutput(), $question);
     }
 
     /**
@@ -290,6 +327,10 @@ class ConsoleIO extends BaseIO
         $question->setMultiselect($multiselect);
 
         $result = $helper->ask($this->input, $this->getErrorOutput(), $question);
+
+        if (!is_array($result)) {
+            return (string) array_search($result, $choices, true);
+        }
 
         $results = array();
         foreach ($choices as $index => $choice) {

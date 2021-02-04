@@ -32,31 +32,26 @@ use yii\web\BadRequestHttpException;
  * Note that all actions in the controller are open to do not require an authenticated Craft session in order to execute.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class InstallController extends Controller
 {
-    // Properties
-    // =========================================================================
+    /**
+     * @inheritdoc
+     */
+    protected $allowAnonymous = self::ALLOW_ANONYMOUS_LIVE | self::ALLOW_ANONYMOUS_OFFLINE;
 
     /**
      * @inheritdoc
      */
-    protected $allowAnonymous = true;
-
-    // Public Methods
-    // =========================================================================
-
-    /**
-     * @inheritdoc
-     * @throws BadRequestHttpException if Craft is already installed
-     */
-    public function init()
+    public function beforeAction($action)
     {
         // Return a 404 if Craft is already installed
         if (!YII_DEBUG && Craft::$app->getIsInstalled()) {
             throw new BadRequestHttpException('Craft is already installed');
         }
+
+        return parent::beforeAction($action);
     }
 
     /**
@@ -71,6 +66,8 @@ class InstallController extends Controller
         if (($response = Craft::$app->runAction('templates/requirements-check')) !== null) {
             return $response;
         }
+
+        $isNitro = App::isNitro();
 
         // Can we establish a DB connection?
         try {
@@ -96,12 +93,13 @@ class InstallController extends Controller
         $defaultSiteUrl = InstallHelper::defaultSiteUrl();
         $defaultSiteLanguage = InstallHelper::defaultSiteLanguage();
 
-        $iconsPath = Craft::getAlias('@app/icons');
+        $iconsPath = Craft::getAlias('@appicons');
         $dbIcon = $showDbScreen ? file_get_contents($iconsPath . DIRECTORY_SEPARATOR . 'database.svg') : null;
         $userIcon = file_get_contents($iconsPath . DIRECTORY_SEPARATOR . 'user.svg');
         $worldIcon = file_get_contents($iconsPath . DIRECTORY_SEPARATOR . 'world.svg');
 
         return $this->renderTemplate('_special/install', compact(
+            'isNitro',
             'showDbScreen',
             'license',
             'defaultSystemName',
@@ -125,7 +123,6 @@ class InstallController extends Controller
 
         $dbConfig = new DbConfig();
         $this->_populateDbConfig($dbConfig);
-
         $errors = [];
 
         // Catch any low hanging fruit first
@@ -146,7 +143,6 @@ class InstallController extends Controller
 
         if (empty($errors)) {
             // Test the connection
-            $dbConfig->updateDsn();
             /** @var Connection $db */
             $db = Craft::createObject(App::dbConfig($dbConfig));
 
@@ -188,10 +184,9 @@ class InstallController extends Controller
         $this->requireAcceptsJson();
 
         $user = new User(['scenario' => User::SCENARIO_REGISTRATION]);
-        $request = Craft::$app->getRequest();
-        $user->email = $request->getBodyParam('email');
-        $user->username = $request->getBodyParam('username', $user->email);
-        $user->newPassword = $request->getBodyParam('password');
+        $user->email = $this->request->getBodyParam('email');
+        $user->username = $this->request->getBodyParam('username', $user->email);
+        $user->newPassword = $this->request->getBodyParam('password');
 
         $validates = $user->validate();
         $errors = $user->getErrors();
@@ -213,11 +208,11 @@ class InstallController extends Controller
         $this->requirePostRequest();
         $this->requireAcceptsJson();
 
-        $request = Craft::$app->getRequest();
-        $site = new Site();
-        $site->name = $request->getBodyParam('name');
-        $site->baseUrl = $request->getBodyParam('baseUrl');
-        $site->language = $request->getBodyParam('language');
+        $site = new Site([
+            'name' => $this->request->getBodyParam('name'),
+            'baseUrl' => $this->request->getBodyParam('baseUrl'),
+            'language' => $this->request->getBodyParam('language'),
+        ]);
 
         $validates = $site->validate(['name', 'baseUrl', 'language']);
         $errors = $site->getErrors();
@@ -235,64 +230,69 @@ class InstallController extends Controller
         $this->requirePostRequest();
         $this->requireAcceptsJson();
 
-        $request = Craft::$app->getRequest();
         $configService = Craft::$app->getConfig();
 
         // Should we set the new DB config values?
-        if ($request->getBodyParam('db-driver') !== null) {
+        if ($this->request->getBodyParam('db-driver') !== null) {
             // Set and save the new DB config values
             $dbConfig = Craft::$app->getConfig()->getDb();
             $this->_populateDbConfig($dbConfig, 'db-');
 
-            $configService->setDotEnvVar('DB_DRIVER', $dbConfig->driver);
-            $configService->setDotEnvVar('DB_SERVER', $dbConfig->server);
+            // If there's a DB_DSN environment variable, go with that
+            if (App::env('DB_DSN') !== false) {
+                $configService->setDotEnvVar('DB_DSN', $dbConfig->dsn);
+            } else {
+                $configService->setDotEnvVar('DB_DRIVER', $dbConfig->driver);
+                $configService->setDotEnvVar('DB_SERVER', $dbConfig->server);
+                $configService->setDotEnvVar('DB_PORT', $dbConfig->port);
+                $configService->setDotEnvVar('DB_DATABASE', $dbConfig->database);
+            }
+
             $configService->setDotEnvVar('DB_USER', $dbConfig->user);
             $configService->setDotEnvVar('DB_PASSWORD', $dbConfig->password);
-            $configService->setDotEnvVar('DB_DATABASE', $dbConfig->database);
             $configService->setDotEnvVar('DB_SCHEMA', $dbConfig->schema);
             $configService->setDotEnvVar('DB_TABLE_PREFIX', $dbConfig->tablePrefix);
-            $configService->setDotEnvVar('DB_PORT', $dbConfig->port);
 
             // Update the db component based on new values
-            /** @var Connection $db */
-            $db = Craft::createObject(App::dbConfig($dbConfig));
-            Craft::$app->set('db', $db);
+            $db = Craft::$app->getDb();
+            $db->close();
+            Craft::configure($db, ArrayHelper::without(App::dbConfig($dbConfig), 'class'));
         }
 
         // Run the install migration
         $migrator = Craft::$app->getMigrator();
 
-        $email = $request->getBodyParam('account-email');
-        $username = $request->getBodyParam('account-username', $email);
-        $siteUrl = $request->getBodyParam('site-baseUrl');
+        $email = $this->request->getBodyParam('account-email');
+        $username = $this->request->getBodyParam('account-username', $email);
+        $siteUrl = $this->request->getBodyParam('site-baseUrl');
 
         // Don't save @web even if they chose it
         if ($siteUrl === '@web') {
             $siteUrl = Craft::getAlias($siteUrl);
         }
 
-        // Try to save the site URL to a DEFAULT_SITE_URL environment variable
+        // Try to save the site URL to a PRIMARY_SITE_URL environment variable
         // if it's not already set to an alias or environment variable
-        if ($siteUrl[0] !== '@' && $siteUrl[0] !== '$') {
+        if ($siteUrl[0] !== '@' && $siteUrl[0] !== '$' && !App::isEphemeral()) {
             try {
-                $configService->setDotEnvVar('DEFAULT_SITE_URL', $siteUrl);
-                $siteUrl = '$DEFAULT_SITE_URL';
+                $configService->setDotEnvVar('PRIMARY_SITE_URL', $siteUrl);
+                $siteUrl = '$PRIMARY_SITE_URL';
             } catch (Exception $e) {
                 // that's fine, we'll just store the entered URL
             }
         }
 
         $site = new Site([
-            'name' => $request->getBodyParam('site-name'),
+            'name' => $this->request->getBodyParam('site-name'),
             'handle' => 'default',
             'hasUrls' => true,
             'baseUrl' => $siteUrl,
-            'language' => $request->getBodyParam('site-language'),
+            'language' => $this->request->getBodyParam('site-language'),
         ]);
 
         $migration = new Install([
             'username' => $username,
-            'password' => $request->getBodyParam('account-password'),
+            'password' => $this->request->getBodyParam('account-password'),
             'email' => $email,
             'site' => $site,
         ]);
@@ -311,9 +311,6 @@ class InstallController extends Controller
         return $this->asJson(['success' => $success]);
     }
 
-    // Private Methods
-    // =========================================================================
-
     /**
      * Returns whether it looks like we have control over the DB config settings.
      *
@@ -321,30 +318,41 @@ class InstallController extends Controller
      */
     private function _canControlDbConfig(): bool
     {
-        // If the .env file doesn't exist, we definitely can't do anyting about it
+        // If this is ephemeral storage, then we can't be writing to a .env file
+        if (App::isEphemeral()) {
+            return false;
+        }
+
+        // If the .env file doesn't exist, we definitely can't do anything about it
         if (!file_exists(Craft::$app->getConfig()->getDotEnvPath())) {
             return false;
         }
 
         // Map the DB settings we definitely care about to their environment variable names
-        $vars = [
-            'driver' => 'DB_DRIVER',
-            'server' => 'DB_SERVER',
-            'user' => 'DB_USER',
-            'password' => 'DB_PASSWORD',
-            'database' => 'DB_DATABASE',
-            //'DB_SCHEMA',
-            //'DB_TABLE_PREFIX',
-            //'DB_PORT',
-        ];
+        $vars = [];
+
+        if (!App::isNitro()) {
+            $vars['user'] = 'DB_USER';
+            $vars['password'] = 'DB_PASSWORD';
+        }
+
+        // If there's a DB_DSN environment variable, go with that
+        if (App::env('DB_DSN') !== false) {
+            $vars['dsn'] = 'DB_DSN';
+        } else {
+            $vars['driver'] = 'DB_DRIVER';
+            $vars['server'] = 'DB_SERVER';
+            $vars['port'] = 'DB_PORT';
+            $vars['database'] = 'DB_DATABASE';
+        }
 
         // Save the current environment variable values, and set temporary ones
         $realValues = [];
         $tempValues = [];
 
         foreach ($vars as $setting => $var) {
-            $realValues[$setting] = getenv($var);
-            $tempValues[$setting] = StringHelper::randomString();
+            $realValues[$setting] = App::env($var);
+            $tempValues[$setting] = $_SERVER[$var] = StringHelper::randomString();
             putenv("{$var}={$tempValues[$setting]}");
         }
 
@@ -354,8 +362,10 @@ class InstallController extends Controller
         // Put the old values back
         foreach ($vars as $setting => $var) {
             if ($realValues[$setting] === false) {
+                unset($_SERVER[$var]);
                 putenv($var);
             } else {
+                $_SERVER[$var] = $realValues[$setting];
                 putenv("{$var}={$realValues[$setting]}");
             }
         }
@@ -378,19 +388,22 @@ class InstallController extends Controller
      */
     private function _populateDbConfig(DbConfig $dbConfig, string $prefix = '')
     {
-        $request = Craft::$app->getRequest();
+        $driver = $this->request->getRequiredBodyParam("{$prefix}driver");
+        $server = $this->request->getBodyParam("{$prefix}server") ?: '127.0.0.1';
+        $database = $this->request->getBodyParam("{$prefix}database");
+        $port = $this->request->getBodyParam("{$prefix}port");
+        if ($port === null || $port === '') {
+            $port = $driver === Connection::DRIVER_MYSQL ? 3306 : 5432;
+        }
 
-        $dbConfig->dsn = null;
-        $dbConfig->url = null;
-        $dbConfig->driver = $request->getRequiredBodyParam($prefix . 'driver');
-        $dbConfig->server = $request->getBodyParam($prefix . 'server') ?: 'localhost';
-        $dbConfig->port = $request->getBodyParam($prefix . 'port');
-        $dbConfig->user = $request->getBodyParam($prefix . 'user') ?: 'root';
-        $dbConfig->password = $request->getBodyParam($prefix . 'password');
-        $dbConfig->database = $request->getBodyParam($prefix . 'database');
-        $dbConfig->schema = $request->getBodyParam($prefix . 'schema') ?: 'public';
-        $dbConfig->tablePrefix = $request->getBodyParam($prefix . 'tablePrefix');
-
-        $dbConfig->init();
+        $dbConfig->driver = $driver;
+        $dbConfig->server = $server;
+        $dbConfig->port = $port;
+        $dbConfig->database = $database;
+        $dbConfig->dsn = "{$driver}:host={$server};port={$port};dbname={$database}";
+        $dbConfig->user = $this->request->getBodyParam("{$prefix}user") ?: 'root';
+        $dbConfig->password = $this->request->getBodyParam("{$prefix}password");
+        $dbConfig->schema = $this->request->getBodyParam("{$prefix}schema") ?: 'public';
+        $dbConfig->tablePrefix = $this->request->getBodyParam("{$prefix}tablePrefix");
     }
 }

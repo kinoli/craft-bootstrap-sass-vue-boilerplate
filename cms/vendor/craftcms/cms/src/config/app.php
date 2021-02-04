@@ -3,8 +3,8 @@
 return [
     'id' => 'CraftCMS',
     'name' => 'Craft CMS',
-    'version' => '3.1.27',
-    'schemaVersion' => '3.1.28',
+    'version' => '3.6.0.1',
+    'schemaVersion' => '3.6.1',
     'minVersionRequired' => '2.6.2788',
     'basePath' => dirname(__DIR__), // Defines the @app alias
     'runtimePath' => '@storage/runtime', // Defines the @runtime alias
@@ -38,6 +38,9 @@ return [
         'deprecator' => [
             'class' => craft\services\Deprecator::class,
         ],
+        'drafts' => [
+            'class' => craft\services\Drafts::class,
+        ],
         'elementIndexes' => [
             'class' => craft\services\ElementIndexes::class,
         ],
@@ -62,8 +65,14 @@ return [
         'globals' => [
             'class' => craft\services\Globals::class,
         ],
+        'gql' => [
+            'class' => craft\services\Gql::class,
+        ],
         'images' => [
             'class' => craft\services\Images::class,
+        ],
+        'log' => [
+            'class' => craft\log\Dispatcher::class,
         ],
         'matrix' => [
             'class' => craft\services\Matrix::class,
@@ -82,6 +91,9 @@ return [
         ],
         'relations' => [
             'class' => craft\services\Relations::class,
+        ],
+        'revisions' => [
+            'class' => craft\services\Revisions::class,
         ],
         'routes' => [
             'class' => craft\services\Routes::class,
@@ -122,6 +134,11 @@ return [
         'updates' => [
             'class' => craft\services\Updates::class,
         ],
+        'urlManager' => [
+            'class' => craft\web\UrlManager::class,
+            'enablePrettyUrl' => true,
+            'ruleConfig' => ['class' => craft\web\UrlRule::class],
+        ],
         'users' => [
             'class' => craft\services\Users::class,
         ],
@@ -139,25 +156,28 @@ return [
         ],
         'contentMigrator' => [
             'class' => craft\db\MigrationManager::class,
-            'type' => craft\db\MigrationManager::TYPE_CONTENT,
+            'track' => craft\db\MigrationManager::TRACK_CONTENT,
             'migrationNamespace' => 'craft\contentmigrations',
             'migrationPath' => '@contentMigrations',
         ],
         'migrator' => [
             'class' => craft\db\MigrationManager::class,
-            'type' => craft\db\MigrationManager::TYPE_APP,
+            'track' => craft\db\MigrationManager::TRACK_CRAFT,
             'migrationNamespace' => 'craft\migrations',
             'migrationPath' => '@app/migrations',
         ],
         'sites' => [
             'class' => craft\services\Sites::class,
-            'currentSite' => null,
+            'currentSite' => defined('CRAFT_SITE') ? CRAFT_SITE : (defined('CRAFT_LOCALE') ? CRAFT_LOCALE : null),
         ],
         'systemSettings' => [
             'class' => craft\services\SystemSettings::class,
         ],
         'i18n' => [
             'class' => craft\i18n\I18N::class,
+            'messageFormatter' => [
+                'class' => craft\i18n\MessageFormatter::class,
+            ],
             'translations' => [
                 'yii' => [
                     'class' => craft\i18n\PhpMessageSource::class,
@@ -196,16 +216,15 @@ return [
         },
 
         'formatter' => function() {
-            return Craft::$app->getLocale()->getFormatter();
+            return Craft::$app->getFormattingLocale()->getFormatter();
+        },
+
+        'formattingLocale' => function() {
+            return craft\helpers\App::createFormattingLocale();
         },
 
         'locale' => function() {
             return Craft::$app->getI18n()->getLocaleById(Craft::$app->language);
-        },
-
-        'log' => function() {
-            $config = craft\helpers\App::logConfig();
-            return $config ? Craft::createObject($config) : null;
         },
 
         'mailer' => function() {
@@ -214,7 +233,7 @@ return [
         },
 
         'mutex' => function() {
-            $config = craft\helpers\App::mutexConfig();
+            $config = craft\helpers\App::dbMutexConfig();
             return Craft::createObject($config);
         },
 

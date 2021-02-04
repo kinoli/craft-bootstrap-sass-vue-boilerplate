@@ -23,22 +23,17 @@ Craft::$app->requireEdition(Craft::Pro);
  * Note that all actions in the controller require an authenticated Craft session via [[allowAnonymous]].
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class RebrandController extends Controller
 {
     /**
-     * Allowed types of site images.
-     *
-     * @var array
+     * @var array Allowed types of site images.
      */
     private $_allowedTypes = ['logo', 'icon'];
 
-    // Public Methods
-    // =========================================================================
-
     /**
-     * Handles Control Panel logo and site icon uploads.
+     * Handles control panel logo and site icon uploads.
      *
      * @return Response
      */
@@ -46,7 +41,7 @@ class RebrandController extends Controller
     {
         $this->requireAcceptsJson();
         $this->requireAdmin();
-        $type = Craft::$app->getRequest()->getRequiredBodyParam('type');
+        $type = $this->request->getRequiredBodyParam('type');
 
         if (!in_array($type, $this->_allowedTypes, true)) {
             return $this->asErrorJson(Craft::t('app', 'That is not an allowed image type.'));
@@ -76,7 +71,11 @@ class RebrandController extends Controller
         move_uploaded_file($file->tempName, $fileDestination);
 
         $imagesService = Craft::$app->getImages();
-        Image::cleanImageByPath($fileDestination);
+
+        if (Craft::$app->getConfig()->getGeneral()->sanitizeCpImageUploads) {
+            Image::cleanImageByPath($fileDestination);
+        }
+
         $imagesService->loadImage($fileDestination)->scaleToFit(300, 300)->saveAs($fileDestination);
         $html = $this->getView()->renderTemplate('settings/general/_images/' . $type);
 
@@ -86,14 +85,14 @@ class RebrandController extends Controller
     }
 
     /**
-     * Deletes Control Panel logo and site icon images.
+     * Deletes control panel logo and site icon images.
      *
      * @return Response
      */
     public function actionDeleteSiteImage(): Response
     {
         $this->requireAdmin();
-        $type = Craft::$app->getRequest()->getRequiredBodyParam('type');
+        $type = $this->request->getRequiredBodyParam('type');
 
         if (!in_array($type, $this->_allowedTypes, true)) {
             $this->asErrorJson(Craft::t('app', 'That is not an allowed image type.'));

@@ -58,7 +58,8 @@ class JsonFormatter
                 $buffer .= $char;
                 $noescape = '\\' === $char ? !$noescape : true;
                 continue;
-            } elseif ('' !== $buffer) {
+            }
+            if ('' !== $buffer) {
                 if ($unescapeSlashes) {
                     $buffer = str_replace('\\/', '/', $buffer);
                 }
@@ -69,6 +70,13 @@ class JsonFormatter
                         $l = strlen($match[1]);
 
                         if ($l % 2) {
+                            $code = hexdec($match[2]);
+                            // 0xD800..0xDFFF denotes UTF-16 surrogate pair which won't be unescaped
+                            // see https://github.com/composer/composer/issues/7510
+                            if (0xD800 <= $code && 0xDFFF >= $code) {
+                                return $match[0];
+                            }
+
                             return str_repeat('\\', $l - 1) . mb_convert_encoding(
                                 pack('H*', $match[2]),
                                 'UTF-8',
@@ -88,7 +96,7 @@ class JsonFormatter
             if (':' === $char) {
                 // Add a space after the : character
                 $char .= ' ';
-            } elseif (('}' === $char || ']' === $char)) {
+            } elseif ('}' === $char || ']' === $char) {
                 $pos--;
                 $prevChar = substr($json, $i - 1, 1);
 

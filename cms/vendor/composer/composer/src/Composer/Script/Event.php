@@ -40,6 +40,11 @@ class Event extends BaseEvent
     private $devMode;
 
     /**
+     * @var BaseEvent
+     */
+    private $originatingEvent;
+
+    /**
      * Constructor.
      *
      * @param string      $name     The event name
@@ -85,5 +90,43 @@ class Event extends BaseEvent
     public function isDevMode()
     {
         return $this->devMode;
+    }
+
+    /**
+     * Set the originating event.
+     *
+     * @return \Composer\EventDispatcher\Event|null
+     */
+    public function getOriginatingEvent()
+    {
+        return $this->originatingEvent;
+    }
+
+    /**
+     * Set the originating event.
+     *
+     * @param  \Composer\EventDispatcher\Event $event
+     * @return $this
+     */
+    public function setOriginatingEvent(BaseEvent $event)
+    {
+        $this->originatingEvent = $this->calculateOriginatingEvent($event);
+
+        return $this;
+    }
+
+    /**
+     * Returns the upper-most event in chain.
+     *
+     * @param  \Composer\EventDispatcher\Event $event
+     * @return \Composer\EventDispatcher\Event
+     */
+    private function calculateOriginatingEvent(BaseEvent $event)
+    {
+        if ($event instanceof Event && $event->getOriginatingEvent()) {
+            return $this->calculateOriginatingEvent($event->getOriginatingEvent());
+        }
+
+        return $event;
     }
 }

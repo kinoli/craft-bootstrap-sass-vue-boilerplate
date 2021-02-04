@@ -10,6 +10,7 @@ namespace yii\queue;
 use Yii;
 use yii\base\Component;
 use yii\base\InvalidArgumentException;
+use yii\base\InvalidConfigException;
 use yii\di\Instance;
 use yii\helpers\VarDumper;
 use yii\queue\serializers\PhpSerializer;
@@ -88,7 +89,24 @@ abstract class Queue extends Component
     public function init()
     {
         parent::init();
+
         $this->serializer = Instance::ensure($this->serializer, SerializerInterface::class);
+
+        if (!is_numeric($this->ttr)) {
+            throw new InvalidConfigException('Default TTR must be integer.');
+        }
+        $this->ttr = (int) $this->ttr;
+        if ($this->ttr <= 0) {
+            throw new InvalidConfigException('Default TTR must be greater that zero.');
+        }
+
+        if (!is_numeric($this->attempts)) {
+            throw new InvalidConfigException('Default attempts count must be integer.');
+        }
+        $this->attempts = (int) $this->attempts;
+        if ($this->attempts <= 0) {
+            throw new InvalidConfigException('Default attempts count must be greater that zero.');
+        }
     }
 
     /**
@@ -158,6 +176,22 @@ abstract class Queue extends Component
             throw new InvalidArgumentException('Job must be instance of JobInterface.');
         }
 
+        if (!is_numeric($event->ttr)) {
+            throw new InvalidArgumentException('Job TTR must be integer.');
+        }
+        $event->ttr = (int) $event->ttr;
+        if ($event->ttr <= 0) {
+            throw new InvalidArgumentException('Job TTR must be greater that zero.');
+        }
+
+        if (!is_numeric($event->delay)) {
+            throw new InvalidArgumentException('Job delay must be integer.');
+        }
+        $event->delay = (int) $event->delay;
+        if ($event->delay < 0) {
+            throw new InvalidArgumentException('Job delay must be positive.');
+        }
+
         $message = $this->serializer->serialize($event->job);
         $event->id = $this->pushMessage($message, $event->ttr, $event->delay, $event->priority);
         $this->trigger(self::EVENT_AFTER_PUSH, $event);
@@ -193,58 +227,73 @@ abstract class Queue extends Component
      */
     protected function handleMessage($id, $message, $ttr, $attempt)
     {
-        $job = $this->serializer->unserialize($message);
-        if (!($job instanceof JobInterface)) {
-            $dump = VarDumper::dumpAsString($job);
-            throw new InvalidArgumentException("Job $id must be a JobInterface instance instead of $dump.");
-        }
-
+        list($job, $error) = $this->unserializeMessage($message);
         $event = new ExecEvent([
             'id' => $id,
             'job' => $job,
             'ttr' => $ttr,
             'attempt' => $attempt,
+            'error' => $error,
         ]);
         $this->trigger(self::EVENT_BEFORE_EXEC, $event);
         if ($event->handled) {
             return true;
         }
-
+        if ($event->error) {
+            return $this->handleError($event);
+        }
         try {
-            $event->job->execute($this);
+            $event->result = $event->job->execute($this);
         } catch (\Exception $error) {
-            return $this->handleError($event->id, $event->job, $event->ttr, $event->attempt, $error);
+            $event->error = $error;
+            return $this->handleError($event);
         } catch (\Throwable $error) {
-            return $this->handleError($event->id, $event->job, $event->ttr, $event->attempt, $error);
+            $event->error = $error;
+            return $this->handleError($event);
         }
         $this->trigger(self::EVENT_AFTER_EXEC, $event);
-
         return true;
     }
 
     /**
-     * @param string|null $id
-     * @param JobInterface $job
-     * @param int $ttr
-     * @param int $attempt
-     * @param \Exception|\Throwable $error
+     * Unserializes.
+     *
+     * @param string $id of the job
+     * @param string $serialized message
+     * @return array pair of a job and error that
+     */
+    public function unserializeMessage($serialized)
+    {
+        try {
+            $job = $this->serializer->unserialize($serialized);
+        } catch (\Exception $e) {
+            return [null, new InvalidJobException($serialized, $e->getMessage(), 0, $e)];
+        }
+
+        if ($job instanceof JobInterface) {
+            return [$job, null];
+        }
+
+        return [null, new InvalidJobException($serialized, sprintf(
+            'Job must be a JobInterface instance instead of %s.',
+            VarDumper::dumpAsString($job)
+        ))];
+    }
+
+    /**
+     * @param ExecEvent $event
      * @return bool
      * @internal
      */
-    public function handleError($id, $job, $ttr, $attempt, $error)
+    public function handleError(ExecEvent $event)
     {
-        $event = new ErrorEvent([
-            'id' => $id,
-            'job' => $job,
-            'ttr' => $ttr,
-            'attempt' => $attempt,
-            'error' => $error,
-            'retry' => $job instanceof RetryableJobInterface
-                ? $job->canRetry($attempt, $error)
-                : $attempt < $this->attempts,
-        ]);
+        $event->retry = $event->attempt < $this->attempts;
+        if ($event->error instanceof InvalidJobException) {
+            $event->retry = false;
+        } elseif ($event->job instanceof RetryableJobInterface) {
+            $event->retry = $event->job->canRetry($event->attempt, $event->error);
+        }
         $this->trigger(self::EVENT_AFTER_ERROR, $event);
-
         return !$event->retry;
     }
 

@@ -15,13 +15,10 @@ use yii\base\Exception;
 /**
  * @inheritdoc
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class I18N extends \yii\i18n\I18N
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var bool Whether the [PHP intl extension](http://php.net/manual/en/book.intl.php) is loaded.
      */
@@ -49,9 +46,6 @@ class I18N extends \yii\i18n\I18N
      * @var bool|null Whether [[translate()]] should wrap translations with `@` characters
      */
     private $_translationDebugOutput;
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * @inheritdoc
@@ -183,11 +177,22 @@ class I18N extends \yii\i18n\I18N
      */
     public function getAppLocaleIds(): array
     {
+        $this->_defineAppLocales();
+        return array_keys($this->_appLocaleIds);
+    }
+
+    /**
+     * Defines the list of supported app locale IDs.
+     *
+     * @return void
+     */
+    private function _defineAppLocales(): void
+    {
         if ($this->_appLocaleIds !== null) {
-            return $this->_appLocaleIds;
+            return;
         }
 
-        $localeIds = [
+        $this->_appLocaleIds = [
             Craft::$app->sourceLanguage => true,
         ];
 
@@ -199,7 +204,7 @@ class I18N extends \yii\i18n\I18N
         }
         while (($subDir = readdir($handle)) !== false) {
             if ($subDir !== '.' && $subDir !== '..' && is_dir($dir . DIRECTORY_SEPARATOR . $subDir)) {
-                $localeIds[$subDir] = true;
+                $this->_appLocaleIds[$subDir] = true;
             }
         }
         closedir($handle);
@@ -208,14 +213,25 @@ class I18N extends \yii\i18n\I18N
         $generalConfig = Craft::$app->getConfig()->getGeneral();
         if (!empty($generalConfig->extraAppLocales)) {
             foreach ($generalConfig->extraAppLocales as $localeId) {
-                $localeIds[$localeId] = true;
+                $this->_appLocaleIds[$localeId] = true;
             }
         }
         if ($generalConfig->defaultCpLanguage) {
-            $localeIds[$generalConfig->defaultCpLanguage] = true;
+            $this->_appLocaleIds[$generalConfig->defaultCpLanguage] = true;
         }
+    }
 
-        return $this->_appLocaleIds = array_keys($localeIds);
+    /**
+     * Returns whether the given locale ID is a supported app locale ID.
+     *
+     * @param string $localeId
+     * @return bool
+     * @since 3.6.0
+     */
+    public function validateAppLocaleId(string $localeId): bool
+    {
+        $this->_defineAppLocales();
+        return isset($this->_appLocaleIds[$localeId]);
     }
 
     // Site Locales
@@ -351,9 +367,6 @@ class I18N extends \yii\i18n\I18N
 
         return $translation;
     }
-
-    // Private Methods
-    // =========================================================================
 
     /**
      * Returns whether [[translate()]] should wrap translations with `@` characters,

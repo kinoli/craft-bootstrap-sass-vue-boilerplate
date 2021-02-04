@@ -31,7 +31,7 @@ class MarkdownDescriptor extends Descriptor
     /**
      * {@inheritdoc}
      */
-    public function describe(OutputInterface $output, $object, array $options = array())
+    public function describe(OutputInterface $output, $object, array $options = [])
     {
         $decorated = $output->isDecorated();
         $output->setDecorated(false);
@@ -44,7 +44,7 @@ class MarkdownDescriptor extends Descriptor
     /**
      * {@inheritdoc}
      */
-    protected function write($content, $decorated = true)
+    protected function write(string $content, bool $decorated = true)
     {
         parent::write($content, $decorated);
     }
@@ -52,7 +52,7 @@ class MarkdownDescriptor extends Descriptor
     /**
      * {@inheritdoc}
      */
-    protected function describeInputArgument(InputArgument $argument, array $options = array())
+    protected function describeInputArgument(InputArgument $argument, array $options = [])
     {
         $this->write(
             '#### `'.($argument->getName() ?: '<none>')."`\n\n"
@@ -66,11 +66,11 @@ class MarkdownDescriptor extends Descriptor
     /**
      * {@inheritdoc}
      */
-    protected function describeInputOption(InputOption $option, array $options = array())
+    protected function describeInputOption(InputOption $option, array $options = [])
     {
         $name = '--'.$option->getName();
         if ($option->getShortcut()) {
-            $name .= '|-'.implode('|-', explode('|', $option->getShortcut())).'';
+            $name .= '|-'.str_replace('|', '|-', $option->getShortcut()).'';
         }
 
         $this->write(
@@ -86,17 +86,19 @@ class MarkdownDescriptor extends Descriptor
     /**
      * {@inheritdoc}
      */
-    protected function describeInputDefinition(InputDefinition $definition, array $options = array())
+    protected function describeInputDefinition(InputDefinition $definition, array $options = [])
     {
-        if ($showArguments = count($definition->getArguments()) > 0) {
+        if ($showArguments = \count($definition->getArguments()) > 0) {
             $this->write('### Arguments');
             foreach ($definition->getArguments() as $argument) {
                 $this->write("\n\n");
-                $this->write($this->describeInputArgument($argument));
+                if (null !== $describeInputArgument = $this->describeInputArgument($argument)) {
+                    $this->write($describeInputArgument);
+                }
             }
         }
 
-        if (count($definition->getOptions()) > 0) {
+        if (\count($definition->getOptions()) > 0) {
             if ($showArguments) {
                 $this->write("\n\n");
             }
@@ -104,7 +106,9 @@ class MarkdownDescriptor extends Descriptor
             $this->write('### Options');
             foreach ($definition->getOptions() as $option) {
                 $this->write("\n\n");
-                $this->write($this->describeInputOption($option));
+                if (null !== $describeInputOption = $this->describeInputOption($option)) {
+                    $this->write($describeInputOption);
+                }
             }
         }
     }
@@ -112,9 +116,8 @@ class MarkdownDescriptor extends Descriptor
     /**
      * {@inheritdoc}
      */
-    protected function describeCommand(Command $command, array $options = array())
+    protected function describeCommand(Command $command, array $options = [])
     {
-        $command->getSynopsis();
         $command->mergeApplicationDefinition(false);
 
         $this->write(
@@ -122,7 +125,7 @@ class MarkdownDescriptor extends Descriptor
             .str_repeat('-', Helper::strlen($command->getName()) + 2)."\n\n"
             .($command->getDescription() ? $command->getDescription()."\n\n" : '')
             .'### Usage'."\n\n"
-            .array_reduce(array_merge(array($command->getSynopsis()), $command->getAliases(), $command->getUsages()), function ($carry, $usage) {
+            .array_reduce(array_merge([$command->getSynopsis()], $command->getAliases(), $command->getUsages()), function ($carry, $usage) {
                 return $carry.'* `'.$usage.'`'."\n";
             })
         );
@@ -132,16 +135,17 @@ class MarkdownDescriptor extends Descriptor
             $this->write($help);
         }
 
-        if ($command->getNativeDefinition()) {
+        $definition = $command->getDefinition();
+        if ($definition->getOptions() || $definition->getArguments()) {
             $this->write("\n\n");
-            $this->describeInputDefinition($command->getNativeDefinition());
+            $this->describeInputDefinition($definition);
         }
     }
 
     /**
      * {@inheritdoc}
      */
-    protected function describeApplication(Application $application, array $options = array())
+    protected function describeApplication(Application $application, array $options = [])
     {
         $describedNamespace = isset($options['namespace']) ? $options['namespace'] : null;
         $description = new ApplicationDescription($application, $describedNamespace);
@@ -163,11 +167,13 @@ class MarkdownDescriptor extends Descriptor
 
         foreach ($description->getCommands() as $command) {
             $this->write("\n\n");
-            $this->write($this->describeCommand($command));
+            if (null !== $describeCommand = $this->describeCommand($command)) {
+                $this->write($describeCommand);
+            }
         }
     }
 
-    private function getApplicationTitle(Application $application)
+    private function getApplicationTitle(Application $application): string
     {
         if ('UNKNOWN' !== $application->getName()) {
             if ('UNKNOWN' !== $application->getVersion()) {

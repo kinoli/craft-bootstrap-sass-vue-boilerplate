@@ -7,28 +7,22 @@
 
 namespace craft\utilities;
 
+use Composer\InstalledVersions;
 use Craft;
 use craft\base\PluginInterface;
 use craft\base\Utility;
 use craft\helpers\App;
-use GuzzleHttp\Client;
-use Imagine\Gd\Imagine;
 use RequirementsChecker;
-use Twig\Environment;
-use Yii;
 use yii\base\Module;
 
 /**
  * SystemReport represents a SystemReport dashboard widget.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class SystemReport extends Utility
 {
-    // Static
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -50,7 +44,7 @@ class SystemReport extends Utility
      */
     public static function iconPath()
     {
-        return Craft::getAlias('@app/icons/check.svg');
+        return Craft::getAlias('@appicons/check.svg');
     }
 
     /**
@@ -74,10 +68,23 @@ class SystemReport extends Utility
             }
         }
 
+        $aliases = [];
+        foreach (Craft::$aliases as $alias => $value) {
+            if (is_array($value)) {
+                foreach ($value as $a => $v) {
+                    $aliases[$a] = $v;
+                }
+            } else {
+                $aliases[$alias] = $value;
+            }
+        }
+        ksort($aliases);
+
         return Craft::$app->getView()->renderTemplate('_components/utilities/SystemReport', [
             'appInfo' => self::_appInfo(),
             'plugins' => Craft::$app->getPlugins()->getAllPlugins(),
             'modules' => $modules,
+            'aliases' => $aliases,
             'requirements' => self::_requirementResults(),
         ]);
     }
@@ -89,17 +96,28 @@ class SystemReport extends Utility
      */
     private static function _appInfo(): array
     {
-        return [
+        $info = [
             'PHP version' => App::phpVersion(),
             'OS version' => PHP_OS . ' ' . php_uname('r'),
             'Database driver & version' => self::_dbDriver(),
             'Image driver & version' => self::_imageDriver(),
             'Craft edition & version' => 'Craft ' . App::editionName(Craft::$app->getEdition()) . ' ' . Craft::$app->getVersion(),
-            'Yii version' => Yii::getVersion(),
-            'Twig version' => Environment::VERSION,
-            'Guzzle version' => Client::VERSION,
-            'Imagine version' => Imagine::VERSION,
         ];
+
+        if (!class_exists(InstalledVersions::class, false)) {
+            $path = Craft::$app->getPath()->getVendorPath() . DIRECTORY_SEPARATOR . 'composer' .  DIRECTORY_SEPARATOR . 'InstalledVersions.php';
+            if (file_exists($path)) {
+                require $path;
+            }
+        }
+
+        if (class_exists(InstalledVersions::class, false)) {
+            $info['Yii version'] = InstalledVersions::getPrettyVersion('yiisoft/yii2');
+            $info['Twig version'] = InstalledVersions::getPrettyVersion('twig/twig');
+            $info['Guzzle version'] = InstalledVersions::getPrettyVersion('guzzlehttp/guzzle');
+        }
+
+        return $info;
     }
 
     /**
@@ -117,7 +135,7 @@ class SystemReport extends Utility
             $driverName = 'PostgreSQL';
         }
 
-        return $driverName . ' ' . $db->getVersion();
+        return $driverName . ' ' . App::normalizeVersion($db->getSchema()->getServerVersion());
     }
 
     /**

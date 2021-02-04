@@ -17,13 +17,10 @@ use yii\base\NotSupportedException;
  * Class RegisterResourceNode
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class RegisterResourceNode extends Node implements NodeCaptureInterface
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -40,10 +37,10 @@ class RegisterResourceNode extends Node implements NodeCaptureInterface
             $compiler
                 ->write("ob_start();\n")
                 ->subcompile($value)
-                ->write("Craft::\$app->getView()->{$method}(ob_get_clean()");
+                ->write("$method(ob_get_clean()");
         } else {
             $compiler
-                ->write("Craft::\$app->getView()->{$method}(")
+                ->write("$method(")
                 ->subcompile($value);
         }
 

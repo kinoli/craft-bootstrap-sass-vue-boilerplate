@@ -8,15 +8,15 @@
 namespace craft\console\controllers;
 
 use Craft;
+use craft\console\Controller;
 use craft\helpers\Console;
-use yii\console\Controller;
 use yii\console\ExitCode;
 
 /**
- * Garbage collector.
+ * Allows you to manage garbage collection.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.1
+ * @since 3.1.0
  */
 class GcController extends Controller
 {
@@ -51,7 +51,7 @@ class GcController extends Controller
     {
         $gc = Craft::$app->getGc();
         $deleteAllTrashed = $gc->deleteAllTrashed;
-        $gc->deleteAllTrashed = ($this->deleteAllTrashed || $this->confirm('Delete all trashed items?'));
+        $gc->deleteAllTrashed = $this->deleteAllTrashed || ($this->interactive && $this->confirm('Delete all trashed items?'));
         $this->stdout('Running garbage collection ... ', Console::FG_YELLOW);
         $gc->run(true);
         $this->stdout('done' . PHP_EOL, Console::FG_GREEN);

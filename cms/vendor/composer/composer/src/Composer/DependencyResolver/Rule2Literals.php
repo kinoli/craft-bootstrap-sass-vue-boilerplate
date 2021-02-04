@@ -28,11 +28,10 @@ class Rule2Literals extends Rule
      * @param int                   $literal2
      * @param int                   $reason     A RULE_* constant describing the reason for generating this rule
      * @param Link|PackageInterface $reasonData
-     * @param array                 $job        The job this rule was created from
      */
-    public function __construct($literal1, $literal2, $reason, $reasonData, $job = null)
+    public function __construct($literal1, $literal2, $reason, $reasonData)
     {
-        parent::__construct($reason, $reasonData, $job);
+        parent::__construct($reason, $reasonData);
 
         if ($literal1 < $literal2) {
             $this->literal1 = $literal1;
@@ -50,9 +49,7 @@ class Rule2Literals extends Rule
 
     public function getHash()
     {
-        $data = unpack('ihash', md5($this->literal1.','.$this->literal2, true));
-
-        return $data['hash'];
+        return $this->literal1.','.$this->literal2;
     }
 
     /**
@@ -65,8 +62,21 @@ class Rule2Literals extends Rule
      */
     public function equals(Rule $rule)
     {
+        // specialized fast-case
+        if ($rule instanceof self) {
+            if ($this->literal1 !== $rule->literal1) {
+                return false;
+            }
+
+            if ($this->literal2 !== $rule->literal2) {
+                return false;
+            }
+
+            return true;
+        }
+
         $literals = $rule->getLiterals();
-        if (2 != count($literals)) {
+        if (2 != \count($literals)) {
             return false;
         }
 
@@ -93,7 +103,7 @@ class Rule2Literals extends Rule
      */
     public function __toString()
     {
-        $result = ($this->isDisabled()) ? 'disabled(' : '(';
+        $result = $this->isDisabled() ? 'disabled(' : '(';
 
         $result .= $this->literal1 . '|' . $this->literal2 . ')';
 

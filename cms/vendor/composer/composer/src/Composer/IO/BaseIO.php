@@ -14,10 +14,9 @@ namespace Composer\IO;
 
 use Composer\Config;
 use Composer\Util\ProcessExecutor;
-use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
-abstract class BaseIO implements IOInterface, LoggerInterface
+abstract class BaseIO implements IOInterface
 {
     protected $authentications = array();
 
@@ -27,6 +26,14 @@ abstract class BaseIO implements IOInterface, LoggerInterface
     public function getAuthentications()
     {
         return $this->authentications;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function resetAuthentications()
+    {
+        $this->authentications = array();
     }
 
     /**
@@ -55,6 +62,22 @@ abstract class BaseIO implements IOInterface, LoggerInterface
     public function setAuthentication($repositoryName, $username, $password = null)
     {
         $this->authentications[$repositoryName] = array('username' => $username, 'password' => $password);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function writeRaw($messages, $newline = true, $verbosity = self::NORMAL)
+    {
+        $this->write($messages, $newline, $verbosity);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function writeErrorRaw($messages, $newline = true, $verbosity = self::NORMAL)
+    {
+        $this->writeError($messages, $newline, $verbosity);
     }
 
     /**
@@ -92,6 +115,7 @@ abstract class BaseIO implements IOInterface, LoggerInterface
         $gitlabOauth = $config->get('gitlab-oauth') ?: array();
         $gitlabToken = $config->get('gitlab-token') ?: array();
         $httpBasic = $config->get('http-basic') ?: array();
+        $bearerToken = $config->get('bearer') ?: array();
 
         // reload oauth tokens from config if available
 
@@ -111,12 +135,18 @@ abstract class BaseIO implements IOInterface, LoggerInterface
         }
 
         foreach ($gitlabToken as $domain => $token) {
-            $this->checkAndSetAuthentication($domain, $token, 'private-token');
+            $username = is_array($token) && array_key_exists("username", $token) ? $token["username"] : $token;
+            $password = is_array($token) && array_key_exists("token", $token) ? $token["token"] : 'private-token';
+            $this->checkAndSetAuthentication($domain, $username, $password);
         }
 
         // reload http basic credentials from config if available
         foreach ($httpBasic as $domain => $cred) {
             $this->checkAndSetAuthentication($domain, $cred['username'], $cred['password']);
+        }
+
+        foreach ($bearerToken as $domain => $token) {
+            $this->checkAndSetAuthentication($domain, $token, 'bearer');
         }
 
         // setup process timeout
@@ -241,9 +271,9 @@ abstract class BaseIO implements IOInterface, LoggerInterface
     public function log($level, $message, array $context = array())
     {
         if (in_array($level, array(LogLevel::EMERGENCY, LogLevel::ALERT, LogLevel::CRITICAL, LogLevel::ERROR))) {
-            $this->writeError('<error>'.$message.'</error>', true, self::NORMAL);
+            $this->writeError('<error>'.$message.'</error>');
         } elseif ($level === LogLevel::WARNING) {
-            $this->writeError('<warning>'.$message.'</warning>', true, self::NORMAL);
+            $this->writeError('<warning>'.$message.'</warning>');
         } elseif ($level === LogLevel::NOTICE) {
             $this->writeError('<info>'.$message.'</info>', true, self::VERBOSE);
         } elseif ($level === LogLevel::INFO) {

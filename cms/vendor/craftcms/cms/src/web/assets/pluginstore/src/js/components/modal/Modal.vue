@@ -13,9 +13,9 @@
     /* global Garnish */
 
     import {mapState} from 'vuex'
-    import Payment from './steps/Payment'
     import Cart from './steps/Cart'
     import Identity from './steps/Identity'
+    import Payment from './steps/Payment'
     import ThankYou from './steps/ThankYou'
 
     export default {
@@ -79,7 +79,7 @@
 </script>
 
 <style lang="scss">
-    @import "../../../../../../../../lib/craftcms-sass/mixins";
+    @import "../../../../../../../../node_modules/craftcms-sass/mixins";
 
     #pluginstore-modal {
         @apply .absolute .pin-t .pin-l;

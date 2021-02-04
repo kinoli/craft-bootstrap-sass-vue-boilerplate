@@ -1,17 +1,19 @@
 <template>
-    <div v-if="plugin" class="plugin-card relative tw-flex flex-no-wrap items-start py-6 border-b border-grey-light border-solid" @click="$emit('click')">
+    <router-link v-if="plugin" :to="'/' + plugin.handle" :title="plugin.name" class="plugin-card relative tw-flex flex-no-wrap items-start py-6 border-b border-grey-light border-solid no-underline hover:no-underline text-grey-darkest">
         <div class="plugin-icon mr-4">
             <img v-if="plugin.iconUrl" :src="plugin.iconUrl" />
             <img v-else :src="defaultPluginSvg" />
         </div>
 
         <div>
-            <div class="plugin-name">
-                <strong>{{ plugin.name }}</strong>
-                <edition-badge v-if="trialMode && activeTrialPluginEdition && plugin.editions.length > 1" :name="activeTrialPluginEdition.name"></edition-badge>
-            </div>
-            <div v-shave="{ height: 45 }">{{ plugin.shortDescription }}</div>
-            
+           <div class="plugin-details-header">
+               <div class="plugin-name">
+                   <strong>{{ plugin.name }}</strong>
+                   <edition-badge v-if="trialMode && activeTrialPluginEdition && plugin.editions.length > 1" :name="activeTrialPluginEdition.name"></edition-badge>
+               </div>
+               <div>{{ plugin.shortDescription }}</div>
+           </div>
+
             <p class="light">
                 <template v-if="priceRange.min !== priceRange.max">
                     <template v-if="priceRange.min > 0">
@@ -35,7 +37,7 @@
 
             <div v-if="isPluginInstalled(plugin.handle)" class="installed" data-icon="check"></div>
         </div>
-    </div>
+    </router-link>
 </template>
 
 <script>
@@ -43,7 +45,6 @@
     import EditionBadge from './EditionBadge'
 
     export default {
-
         props: ['plugin', 'trialMode'],
 
         components: {
@@ -51,7 +52,6 @@
         },
 
         computed: {
-
             ...mapState({
                 defaultPluginSvg: state => state.craft.defaultPluginSvg,
             }),
@@ -62,7 +62,7 @@
             }),
 
             activeTrialPluginEdition() {
-                return this.getActiveTrialPluginEdition(this.plugin.handle)
+                return this.getActiveTrialPluginEdition(this.plugin)
             },
 
             priceRange() {
@@ -102,20 +102,23 @@
                     max
                 }
             }
-
         },
-
     }
 </script>
 
 <style lang="scss" scoped>
-    @import "../../../../../../../lib/craftcms-sass/mixins";
+    @import "../../../../../../../node_modules/craftcms-sass/mixins";
 
-    .plugin-name {
-        @apply .flex;
+    .plugin-details-header {
+        @apply .leading-normal .overflow-hidden .mb-1;
+        max-height: 4.75em;
 
-        .edition-badge {
-            @apply .ml-2;
+        .plugin-name {
+            @apply .flex .mb-1;
+
+            .edition-badge {
+                @apply .ml-2;
+            }
         }
     }
 
@@ -123,8 +126,6 @@
         box-sizing: border-box;
 
         &:hover {
-            @apply .cursor-pointer;
-
             strong {
                 color: $linkColor;
             }

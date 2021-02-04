@@ -12,15 +12,17 @@ use yii\base\Component;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Url;
 use yii\helpers\VarDumper;
+use yii\helpers\StringHelper;
 
 /**
  * Panel is a base class for debugger panel classes. It defines how data should be collected,
  * what should be displayed at debug toolbar and on debugger details view.
  *
- * @property string $detail Content that is displayed in debugger detail view. This property is read-only.
- * @property string $name Name of the panel. This property is read-only.
- * @property string $summary Content that is displayed at debug toolbar. This property is read-only.
- * @property string $url URL pointing to panel detail view. This property is read-only.
+ * @property-read string $detail Content that is displayed in debugger detail view. This property is
+ * read-only.
+ * @property-read string $name Name of the panel. This property is read-only.
+ * @property-read string $summary Content that is displayed at debug toolbar. This property is read-only.
+ * @property-read string $url URL pointing to panel detail view. This property is read-only.
  *
  * @author Qiang Xue <qiang.xue@gmail.com>
  * @since 2.0
@@ -139,6 +141,16 @@ class Panel extends Component
         }
 
         $options['file'] = str_replace('\\', '/', $options['file']);
+
+        foreach ($this->module->tracePathMappings as $old => $new) {
+            $old = rtrim(str_replace('\\', '/', $old), '/') . '/';
+            if (StringHelper::startsWith($options['file'], $old)) {
+                $new = rtrim(str_replace('\\', '/', $new), '/') . '/';
+                $options['file'] = $new . substr($options['file'], strlen($old));
+                break;
+            }
+        }
+
         $rawLink = $traceLine instanceof \Closure ? $traceLine($options, $this) : $traceLine;
         return strtr($rawLink, ['{file}' => $options['file'], '{line}' => $options['line'], '{text}' => $options['text']]);
     }

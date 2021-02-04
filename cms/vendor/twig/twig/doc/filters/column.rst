@@ -2,12 +2,13 @@
 ==========
 
 .. versionadded:: 2.8
+
     The ``column`` filter was added in Twig 2.8.
 
 The ``column`` filter returns the values from a single column in the input
 array.
 
-.. code-block:: jinja
+.. code-block:: twig
 
     {% set items = [{ 'fruit' : 'apple'}, {'fruit' : 'orange' }] %}
 

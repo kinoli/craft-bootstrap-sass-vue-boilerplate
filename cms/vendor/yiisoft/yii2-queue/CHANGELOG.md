@@ -1,15 +1,50 @@
 Yii2 Queue Extension Change Log
 ===============================
 
+2.3.1 December 23, 2020
+-----------------------
+
+- Bug #380: Fixed amqp-interop queue/listen signal handling (tarinu)
+- Enh #388: `symfony/process 5.0` compatibility (leandrogehlen)
+
+
+2.3.0 June 04, 2019
+-------------------
+
+- Enh #260: Added STOMP driver (versh23)
+
+
+2.2.1 May 21, 2019
+------------------
+
+- Bug #220: Updated to the latest amqp-lib (alexkart)
+- Enh #293: Add `handle` method to `\yii\queue\sqs\Queue` that provides public access for `handleMessage` which can be
+useful for handling jobs by webhooks (alexkart)
+- Enh #332: Add AWS SQS FIFO support (kringkaste, alexkart)
+
+
+2.2.0 Mar 20, 2019
+------------------
+
+- Bug #220: Fixed deadlock problem of DB driver (zhuravljov)
+- Bug #258: Worker in isolated mode fails if PHP_BINARY contains spaces (luke-)
+- Bug #267: Fixed symfony/process incompatibility (rob006)
+- Bug #269: Handling of broken messages that are not unserialized correctly (zhuravljov)
+- Bug #299: Queue config param validation (zhuravljov)
+- Enh #248: Reduce roundtrips to beanstalk server when removing job (SamMousa)
+- Enh #318: Added check result call function flock (evaldemar)
+- Enh: Job execution result is now forwarded to the event handler (zhuravljov)
+- Enh: `ErrorEvent` was marked as deprecated (zhuravljov)
+
 2.1.0 May 24, 2018
 ------------------
 
-- Bug #210: Worker option to define php bin path to run child process (zhuravljov)
-- Enh: Worker loop event (zhuravljov)
+- Bug #126: Handles a fatal error of the job execution in isolate mode (zhuravljov)
 - Bug #207: Console params validation (zhuravljov)
+- Bug #210: Worker option to define php bin path to run child process (zhuravljov)
 - Bug #224: Invalid identifier "DELAY" (lar-dragon)
 - Enh #192: AWS SQS implementation (elitemaks, manoj-girnar)
-- Bug #126: Handles a fatal error of the job execution in isolate mode (zhuravljov)
+- Enh: Worker loop event (zhuravljov)
 
 2.0.2 December 26, 2017
 -----------------------
@@ -130,9 +165,3 @@ Yii2 Queue Extension Change Log
 - Enh: Add exchange for AMQP driver (airani)
 - Enh: Beanstalk driver (zhuravljov)
 - Enh: Added English docs (samdark)
-
-
-
-
-
-

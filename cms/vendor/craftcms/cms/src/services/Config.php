@@ -28,18 +28,12 @@ use yii\base\InvalidConfigException;
  * @property DbConfig $db the DB config settings
  * @property GeneralConfig $general the general config settings
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Config extends Component
 {
-    // Constants
-    // =========================================================================
-
     const CATEGORY_DB = 'db';
     const CATEGORY_GENERAL = 'general';
-
-    // Properties
-    // =========================================================================
 
     /**
      * @var string|null The environment ID Craft is currently running in.
@@ -75,9 +69,6 @@ class Config extends Component
      * @var bool|null
      */
     private $_dotEnvPath;
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * Returns all of the config settings for a given category.
@@ -124,10 +115,12 @@ class Config extends Component
                     }
                     $config->securityKey = $key;
                 }
-                Craft::$app->getDeprecator()->log('validation.key', "The auto-generated validation key stored at {$keyPath} has been deprecated. Copy its value to the “securityKey” config setting in config/general.php.");
+                Craft::$app->getDeprecator()->log('validation.key', "The auto-generated validation key stored at `{$keyPath}` has been deprecated. Copy its value to the `securityKey` config setting in `config/general.php`.");
             }
             if ($config->siteUrl === null && defined('CRAFT_SITE_URL')) {
-                Craft::$app->getDeprecator()->log('CRAFT_SITE_URL', 'The CRAFT_SITE_URL constant has been deprecated. Set the “siteUrl” config setting in config/general.php instead.');
+                Craft::$app->getDeprecator()->log('CRAFT_SITE_URL', 'The `CRAFT_SITE_URL` constant has been deprecated. ' .
+                    'You can set your sites’ Base URL settings on a per-environment basis using aliases or environment variables. ' .
+                    'See [Environmental Configuration](https://craftcms.com/docs/3.x/config/#environmental-configuration) for more info.');
                 $config->siteUrl = CRAFT_SITE_URL;
             }
         }
@@ -260,12 +253,16 @@ class Config extends Component
         $contents = file_get_contents($path);
         $qName = preg_quote($name, '/');
         $slashedValue = addslashes($value);
+        // Only surround with quotes if the value contains a space
+        if (strpos($slashedValue, ' ') !== false || strpos($slashedValue, '#') !== false) {
+            $slashedValue = "\"$slashedValue\"";
+        }
         $qValue = str_replace('$', '\\$', $slashedValue);
-        $contents = preg_replace("/^(\s*){$qName}=.*/m", "\$1{$name}=\"{$qValue}\"", $contents, -1, $count);
+        $contents = preg_replace("/^(\s*){$qName}=.*/m", "\$1$name=$qValue", $contents, -1, $count);
 
         if ($count === 0) {
             $contents = rtrim($contents);
-            $contents = ($contents ? $contents . PHP_EOL . PHP_EOL : '') . "{$name}=\"{$slashedValue}\"" . PHP_EOL;
+            $contents = ($contents ? $contents . PHP_EOL . PHP_EOL : '') . "$name=$slashedValue" . PHP_EOL;
         }
 
         FileHelper::writeToFile($path, $contents);

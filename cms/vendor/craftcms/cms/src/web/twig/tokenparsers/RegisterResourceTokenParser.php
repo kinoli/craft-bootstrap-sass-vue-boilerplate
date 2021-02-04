@@ -18,13 +18,10 @@ use Twig\TokenStream;
  * Class RegisterResourceTokenParser
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class RegisterResourceTokenParser extends AbstractTokenParser
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var string The tag name
      */
@@ -61,9 +58,6 @@ class RegisterResourceTokenParser extends AbstractTokenParser
      */
     public $newCode;
 
-    // Public Methods
-    // =========================================================================
-
     /**
      * @param string $tag the tag name
      * @param string $method the View method the tag represents
@@ -86,7 +80,7 @@ class RegisterResourceTokenParser extends AbstractTokenParser
     {
         // Is this the deprecated version?
         if ($this->newCode !== null) {
-            \Craft::$app->getDeprecator()->log($this->tag, "{% {$this->tag} %} is now deprecated. Use {$this->newCode} instead.");
+            \Craft::$app->getDeprecator()->log($this->tag, "`{% {$this->tag}` %} is now deprecated. Use `{$this->newCode}` instead.");
         }
 
         $lineno = $token->getLine();
@@ -184,9 +178,6 @@ class RegisterResourceTokenParser extends AbstractTokenParser
     {
         return $token->test('end' . strtolower($this->tag));
     }
-
-    // Private Methods
-    // =========================================================================
 
     /**
      * Returns whether the next token in the stream is a position param.

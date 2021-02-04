@@ -351,9 +351,9 @@ class BaseInflector
      * Converts a word like "send_email" to "SendEmail". It
      * will remove non alphanumeric character from the word, so
      * "who's online" will be converted to "WhoSOnline".
-     * @see variablize()
      * @param string $word the word to CamelCase
      * @return string
+     * @see variablize()
      */
     public static function camelize($word)
     {
@@ -477,7 +477,11 @@ class BaseInflector
      */
     public static function slug($string, $replacement = '-', $lowercase = true)
     {
-        $parts = explode($replacement, static::transliterate($string));
+        if ((string)$replacement !== '') {
+            $parts = explode($replacement, static::transliterate($string));
+        } else {
+            $parts = [static::transliterate($string)];
+        }
 
         $replaced = array_map(function ($element) use ($replacement) {
             $element = preg_replace('/[^a-zA-Z0-9=\s—–-]+/u', '', $element);
@@ -485,6 +489,9 @@ class BaseInflector
         }, $parts);
 
         $string = trim(implode($replacement, $replaced), $replacement);
+        if ((string)$replacement !== '') {
+            $string = preg_replace('#' . preg_quote($replacement) . '+#', $replacement, $string);
+        }
 
         return $lowercase ? strtolower($string) : $string;
     }

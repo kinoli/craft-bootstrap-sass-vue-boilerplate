@@ -1,0 +1,17 @@
+dateModified: 1612417148
+email:
+  fromEmail: jesse@kinoli.com
+  fromName: IntegralOrg
+  transportType: craft\mail\transportadapters\Sendmail
+system:
+  edition: solo
+  live: true
+  name: IntegralOrg
+  schemaVersion: 3.6.1
+  timeZone: America/Los_Angeles
+users:
+  allowPublicRegistration: false
+  defaultGroup: null
+  photoSubpath: null
+  photoVolumeUid: null
+  requireEmailVerification: true

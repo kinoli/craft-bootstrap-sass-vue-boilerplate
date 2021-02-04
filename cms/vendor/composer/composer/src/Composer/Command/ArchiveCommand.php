@@ -22,6 +22,8 @@ use Composer\Script\ScriptEvents;
 use Composer\Plugin\CommandEvent;
 use Composer\Plugin\PluginEvents;
 use Composer\Util\Filesystem;
+use Composer\Util\Loop;
+use Composer\Util\ProcessExecutor;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -48,13 +50,15 @@ class ArchiveCommand extends BaseCommand
                     .' Note that the format will be appended.'),
                 new InputOption('ignore-filters', false, InputOption::VALUE_NONE, 'Ignore filters when saving package'),
             ))
-            ->setHelp(<<<EOT
+            ->setHelp(
+                <<<EOT
 The <info>archive</info> command creates an archive of the specified format
 containing the files and directories of the Composer project or the specified
 package in the specified version and writes it to the specified directory.
 
 <info>php composer.phar archive [--format=zip] [--dir=/foo] [package [version]]</info>
 
+Read more at https://getcomposer.org/doc/03-cli.md#archive
 EOT
             )
         ;
@@ -62,12 +66,19 @@ EOT
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $config = Factory::createConfig();
         $composer = $this->getComposer(false);
+        $config = null;
+
         if ($composer) {
+            $config = $composer->getConfig();
             $commandEvent = new CommandEvent(PluginEvents::COMMAND, 'archive', $input, $output);
-            $composer->getEventDispatcher()->dispatch($commandEvent->getName(), $commandEvent);
-            $composer->getEventDispatcher()->dispatchScript(ScriptEvents::PRE_ARCHIVE_CMD);
+            $eventDispatcher = $composer->getEventDispatcher();
+            $eventDispatcher->dispatch($commandEvent->getName(), $commandEvent);
+            $eventDispatcher->dispatchScript(ScriptEvents::PRE_ARCHIVE_CMD);
+        }
+
+        if (!$config) {
+            $config = Factory::createConfig();
         }
 
         if (null === $input->getOption('format')) {
@@ -102,8 +113,10 @@ EOT
             $archiveManager = $composer->getArchiveManager();
         } else {
             $factory = new Factory;
-            $downloadManager = $factory->createDownloadManager($io, $config);
-            $archiveManager = $factory->createArchiveManager($config, $downloadManager);
+            $process = new ProcessExecutor();
+            $httpDownloader = Factory::createHttpDownloader($io, $config);
+            $downloadManager = $factory->createDownloadManager($io, $config, $httpDownloader, $process);
+            $archiveManager = $factory->createArchiveManager($config, $downloadManager, new Loop($httpDownloader, $process));
         }
 
         if ($packageName) {

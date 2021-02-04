@@ -1,7 +1,6 @@
 /** global: Garnish */
 
 Craft.SlideRuleInput = Garnish.Base.extend({
-
     $container: null,
     $options: null,
     $selectedOption: null,
@@ -89,9 +88,7 @@ Craft.SlideRuleInput = Garnish.Base.extend({
         if (value < this.slideMin) {
             value = this.slideMin;
             left = this.valueToPosition(value);
-
-        }
-        else if (value > this.slideMax) {
+        } else if (value > this.slideMax) {
             value = this.slideMax;
             left = this.valueToPosition(value);
         }
@@ -134,7 +131,7 @@ Craft.SlideRuleInput = Garnish.Base.extend({
         var scaleMin = (this.graduationsMin * -1);
         var scaleMax = (this.graduationsMin - this.graduationsMax) * -1;
 
-        return (( ( this.$graduations.width() / 2 ) + (position * -1) ) / this.graduationsCalculatedWidth) * scaleMax - scaleMin;
+        return (((this.$graduations.width() / 2) + (position * -1)) / this.graduationsCalculatedWidth) * scaleMax - scaleMin;
     },
 
     valueToPosition: function(value) {

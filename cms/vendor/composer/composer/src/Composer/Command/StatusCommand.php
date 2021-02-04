@@ -36,6 +36,9 @@ class StatusCommand extends BaseCommand
     const EXIT_CODE_UNPUSHED_CHANGES = 2;
     const EXIT_CODE_VERSION_CHANGES = 4;
 
+    /**
+     * @throws \Symfony\Component\Console\Exception\InvalidArgumentException
+     */
     protected function configure()
     {
         $this
@@ -44,30 +47,53 @@ class StatusCommand extends BaseCommand
             ->setDefinition(array(
                 new InputOption('verbose', 'v|vv|vvv', InputOption::VALUE_NONE, 'Show modified files for each directory that contains changes.'),
             ))
-            ->setHelp(<<<EOT
+            ->setHelp(
+                <<<EOT
 The status command displays a list of dependencies that have
 been modified locally.
 
+Read more at https://getcomposer.org/doc/03-cli.md#status
 EOT
             )
         ;
     }
 
+    /**
+     * @param  InputInterface  $input
+     * @param  OutputInterface $output
+     * @return int
+     */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        // init repos
         $composer = $this->getComposer();
 
         $commandEvent = new CommandEvent(PluginEvents::COMMAND, 'status', $input, $output);
         $composer->getEventDispatcher()->dispatch($commandEvent->getName(), $commandEvent);
 
+        // Dispatch pre-status-command
+        $composer->getEventDispatcher()->dispatchScript(ScriptEvents::PRE_STATUS_CMD, true);
+
+        $exitCode = $this->doExecute($input);
+
+        // Dispatch post-status-command
+        $composer->getEventDispatcher()->dispatchScript(ScriptEvents::POST_STATUS_CMD, true);
+
+        return $exitCode;
+    }
+
+    /**
+     * @param  InputInterface $input
+     * @return int
+     */
+    private function doExecute(InputInterface $input)
+    {
+        // init repos
+        $composer = $this->getComposer();
+
         $installedRepo = $composer->getRepositoryManager()->getLocalRepository();
 
         $dm = $composer->getDownloadManager();
         $im = $composer->getInstallationManager();
-
-        // Dispatch pre-status-command
-        $composer->getEventDispatcher()->dispatchScript(ScriptEvents::PRE_STATUS_CMD, true);
 
         $errors = array();
         $io = $this->getIO();
@@ -80,7 +106,7 @@ EOT
 
         // list packages
         foreach ($installedRepo->getCanonicalPackages() as $package) {
-            $downloader = $dm->getDownloaderForInstalledPackage($package);
+            $downloader = $dm->getDownloaderForPackage($package);
             $targetDir = $im->getInstallPath($package);
 
             if ($downloader instanceof ChangeReportInterface) {
@@ -94,7 +120,7 @@ EOT
             }
 
             if ($downloader instanceof VcsCapableDownloaderInterface) {
-                if ($currentRef = $downloader->getVcsReference($package, $targetDir)) {
+                if ($downloader->getVcsReference($package, $targetDir)) {
                     switch ($package->getInstallationSource()) {
                         case 'source':
                             $previousRef = $package->getSourceReference();
@@ -195,9 +221,6 @@ EOT
         if (($errors || $unpushedChanges || $vcsVersionChanges) && !$input->getOption('verbose')) {
             $io->writeError('Use --verbose (-v) to see a list of files');
         }
-
-        // Dispatch post-status-command
-        $composer->getEventDispatcher()->dispatchScript(ScriptEvents::POST_STATUS_CMD, true);
 
         return ($errors ? self::EXIT_CODE_ERRORS : 0) + ($unpushedChanges ? self::EXIT_CODE_UNPUSHED_CHANGES : 0) + ($vcsVersionChanges ? self::EXIT_CODE_VERSION_CHANGES : 0);
     }

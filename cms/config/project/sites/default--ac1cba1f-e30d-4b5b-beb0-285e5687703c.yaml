@@ -1,0 +1,8 @@
+baseUrl: $PRIMARY_SITE_URL
+handle: default
+hasUrls: true
+language: en-US
+name: IntegralOrg
+primary: true
+siteGroup: eb6f8f24-02b2-46e6-bba3-a62c21421408
+sortOrder: 1

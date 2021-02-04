@@ -16,20 +16,14 @@ use Twig\Node\Node;
  * Cache twig node.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class CacheNode extends Node
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var int
      */
     private static $_cacheCount = 1;
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * @inheritdoc
@@ -90,7 +84,7 @@ class CacheNode extends Node
             ->indent()
             ->write("if (!\$ignoreCache{$n}) {\n")
             ->indent()
-            ->write("\$cacheService->startTemplateCache(\$cacheKey{$n});\n")
+            ->write("\$cacheService->startTemplateCache();\n")
             ->outdent()
             ->write("}\n")
             ->write("ob_start();\n")

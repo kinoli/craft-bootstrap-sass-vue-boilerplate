@@ -15,7 +15,7 @@ associated with inline VCS repositories.
 There are three ways the dependency solver could work with custom repositories:
 
 - Fetch the repositories of root package, get all the packages from the defined
-repositories, resolve requirements. This is the current state and it works well
+repositories, then resolve requirements. This is the current state and it works well
 except for the limitation of not loading repositories recursively.
 
 - Fetch the repositories of root package, while initializing packages from the
@@ -24,7 +24,7 @@ their package's packages, etc, then resolve requirements. It could work, but it
 slows down the initialization a lot since VCS repos can each take a few seconds,
 and it could end up in a completely broken state since many versions of a package
 could define the same packages inside a package repository, but with different
-dist/source. There are many many ways this could go wrong.
+dist/source. There are many ways this could go wrong.
 
 - Fetch the repositories of root package, then fetch the repositories of the
 first level dependencies, then fetch the repositories of their dependencies, etc,

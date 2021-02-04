@@ -21,20 +21,27 @@ Inheritance
 Errors
 ------
 
- * Passing a string as the ``$source`` argument on ``\Twig\Error\Error`` /
-   ``Twig\Error\Error`` constructor is deprecated since Twig 2.6.1. Pass an
-   instance of ``Twig\Source`` instead.
+* Passing a string as the ``$source`` argument on ``\Twig\Error\Error`` /
+  ``Twig\Error\Error`` constructor is deprecated since Twig 2.6.1. Pass an
+  instance of ``Twig\Source`` instead.
 
 Tags
 ----
 
 * The ``spaceless`` tag is deprecated in Twig 2.7. Use the ``spaceless`` filter
-  instead or ``{% filter spaceless %}`` (the ``Twig\Node\SpacelessNode`` and
+  instead or ``{% apply spaceless %}`` (the ``Twig\Node\SpacelessNode`` and
   ``Twig\TokenParser\SpacelessTokenParser`` classes are also deprecated).
 
 * Using the ``spaceless`` tag at the root level of a child template is
   deprecated in Twig 2.5.0. This does not work as one would expect it to work
   anyway. In Twig 3.0, it will throw a ``Twig\Error\SyntaxError`` exception.
+
+* The ``filter`` tag is deprecated in Twig 2.9. Use the ``apply`` tag instead
+  (the ``Twig\TokenParser\FilterTokenParser`` classes is also deprecated).
+
+* Adding an ``if`` condition on a ``for`` tag is deprecated in Twig 2.10. Use a
+  ``filter`` filter or an "if" condition inside the "for" body instead (if your condition
+  depends on a variable updated inside the loop).
 
 Final Classes
 -------------
@@ -86,6 +93,13 @@ Interfaces
 * As of Twig 2.7, the ``Twig\Extension\InitRuntimeInterface`` interface is
   deprecated and will be removed in Twig 3.0.
 
+Extensions
+----------
+
+* As of Twig 2.11, the ``Twig\Extension\CoreExtension::setEscaper()`` and
+  ``Twig\Extension\CoreExtension::getEscapers()`` are deprecated. Use the same
+  methods on ``Twig\Extension\EscaperExtension`` instead.
+
 Miscellaneous
 -------------
 
@@ -93,3 +107,9 @@ Miscellaneous
   ``Twig_SimpleTest`` empty classes are deprecated and will be removed in Twig
   3.0. Use ``Twig\TwigFilter``, ``Twig\TwigFunction``, and ``Twig\TwigTest``
   respectively.
+
+* As of Twig 2.8.2, all usage of
+  ``Twig\Loader\FilesystemLoader::findTemplate()`` check for a ``null`` return
+  value (same meaning as returning ``false``). If you are overidding
+  ``Twig\Loader\FilesystemLoader::findTemplate()``, you must return ``null`` instead of ``false``
+  to be compatible with Twig 3.0.

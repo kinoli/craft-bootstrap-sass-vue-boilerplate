@@ -11,6 +11,7 @@ use Composer\Package\CompletePackageInterface;
 use Composer\Package\PackageInterface;
 use Composer\Repository\InstalledRepositoryInterface;
 use Composer\Util\Filesystem;
+use React\Promise\PromiseInterface;
 
 /**
  * Installer is the Composer installer that installs Craft CMS plugins.
@@ -19,38 +20,34 @@ use Composer\Util\Filesystem;
  */
 class Installer extends LibraryInstaller
 {
-    // Constants
-    // =========================================================================
-
     const PLUGINS_FILE = 'craftcms/plugins.php';
-
-    // Public Methods
-    // =========================================================================
-
-    /**
-     * @inheritdoc
-     */
-    public function supports($packageType)
-    {
-        return $packageType === 'craft-plugin';
-    }
 
     /**
      * @inheritdoc
      */
     public function install(InstalledRepositoryInterface $repo, PackageInterface $package)
     {
-        // Install the plugin in vendor/ like a normal Composer library
-        parent::install($repo, $package);
+        $addPlugin = function() use ($repo, $package) {
+            // Add the plugin info to plugins.php
+            try {
+                $this->addPlugin($package);
+            } catch (InvalidPluginException $e) {
+                // Rollback
+                parent::uninstall($repo, $package);
+                throw $e;
+            }
+        };
 
-        // Add the plugin info to plugins.php
-        try {
-            $this->addPlugin($package);
-        } catch (InvalidPluginException $e) {
-            // Rollback
-            parent::uninstall($repo, $package);
-            throw $e;
+        // Install the plugin in vendor/ like a normal Composer library
+        $promise = parent::install($repo, $package);
+
+        // Composer v2 might return a promise here
+        if ($promise instanceof PromiseInterface) {
+            return $promise->then($addPlugin);
         }
+
+        $addPlugin();
+        return null;
     }
 
     /**
@@ -58,23 +55,33 @@ class Installer extends LibraryInstaller
      */
     public function update(InstalledRepositoryInterface $repo, PackageInterface $initial, PackageInterface $target)
     {
-        // Update the plugin in vendor/ like a normal Composer library
-        parent::update($repo, $initial, $target);
+        $updatePlugin = function() use ($repo, $initial, $target) {
+            // Remove the old plugin info from plugins.php
+            $initialPlugin = $this->removePlugin($initial);
 
-        // Remove the old plugin info from plugins.php
-        $initialPlugin = $this->removePlugin($initial);
-
-        // Add the new plugin info to plugins.php
-        try {
-            $this->addPlugin($target);
-        } catch (InvalidPluginException $e) {
-            // Rollback
-            parent::update($repo, $target, $initial);
-            if ($initialPlugin !== null) {
-                $this->registerPlugin($initial->getName(), $initialPlugin);
+            // Add the new plugin info to plugins.php
+            try {
+                $this->addPlugin($target);
+            } catch (InvalidPluginException $e) {
+                // Rollback
+                parent::update($repo, $target, $initial);
+                if ($initialPlugin !== null) {
+                    $this->registerPlugin($initial->getName(), $initialPlugin);
+                }
+                throw $e;
             }
-            throw $e;
+        };
+
+        // Update the plugin in vendor/ like a normal Composer library
+        $promise = parent::update($repo, $initial, $target);
+
+        // Composer v2 might return a promise here
+        if ($promise instanceof PromiseInterface) {
+            return $promise->then($updatePlugin);
         }
+
+        $updatePlugin();
+        return null;
     }
 
     /**
@@ -82,18 +89,29 @@ class Installer extends LibraryInstaller
      */
     public function uninstall(InstalledRepositoryInterface $repo, PackageInterface $package)
     {
-        // Uninstall the plugin from vendor/ like a normal Composer library
-        parent::uninstall($repo, $package);
+        $removePlugin = function() use ($package) {
+            // Remove the plugin info from plugins.php
+            $this->removePlugin($package);
+        };
 
-        // Remove the plugin info from plugins.php
-        $this->removePlugin($package);
+        // Uninstall the plugin from vendor/ like a normal Composer library
+        $promise = parent::uninstall($repo, $package);
+
+        // Composer v2 might return a promise here
+        if ($promise instanceof PromiseInterface) {
+            return $promise->then($removePlugin);
+        }
+
+        $removePlugin();
+        return null;
     }
 
     /**
      * @param PackageInterface $package
+     * @param bool $isRoot
      * @throws InvalidPluginException() if there's an issue with the plugin
      */
-    protected function addPlugin(PackageInterface $package)
+    public function addPlugin(PackageInterface $package, $isRoot = false)
     {
         $extra = $package->getExtra();
         $prettyName = $package->getPrettyName();
@@ -101,7 +119,7 @@ class Installer extends LibraryInstaller
         // Find the PSR-4 autoload aliases, the primary Plugin class, and base path
         $class = isset($extra['class']) ? $extra['class'] : null;
         $basePath = isset($extra['basePath']) ? $extra['basePath'] : null;
-        $aliases = $this->generateDefaultAliases($package, $class, $basePath);
+        $aliases = $this->generateDefaultAliases($package, $class, $basePath, $isRoot);
 
         // class + basePath (required)
         if ($class === null) {
@@ -125,14 +143,14 @@ class Installer extends LibraryInstaller
             // prevent double -'s
             $handle = preg_replace('/\-{2,}/', '-', $handle);
             // complain about it
-            $this->io->write('<warning>'.$prettyName.' uses the old plugin handle format ("'.$extra['handle'].'"). It should be "'.$handle.'".</warning>');
+            $this->io->write('<warning>' . $prettyName . ' uses the old plugin handle format ("' . $extra['handle'] . '"). It should be "' . $handle . '".</warning>');
         }
 
-        $plugin = array(
+        $plugin = [
             'class' => $class,
             'basePath' => $basePath,
             'handle' => $handle,
-        );
+        ];
 
         if ($aliases) {
             $plugin['aliases'] = $aliases;
@@ -244,12 +262,17 @@ class Installer extends LibraryInstaller
             $plugin['modules'] = $extra['modules'];
         }
 
+        // minimum required version
+        if (isset($extra['minVersionRequired'])) {
+            $plugin['minVersionRequired'] = $extra['minVersionRequired'];
+        }
+
         $this->registerPlugin($package->getName(), $plugin);
     }
 
     /**
-     * @param string $name   The plugin's package name
-     * @param array  $plugin The plugin config
+     * @param string $name The plugin's package name
+     * @param array $plugin The plugin config
      */
     protected function registerPlugin($name, array $plugin)
     {
@@ -260,12 +283,12 @@ class Installer extends LibraryInstaller
 
     /**
      * @param PackageInterface $package
-     * @param                  $class
-     * @param                  $basePath
-     *
+     * @param $class
+     * @param $basePath
+     * @param bool $isRoot
      * @return array|null
      */
-    protected function generateDefaultAliases(PackageInterface $package, &$class, &$basePath)
+    protected function generateDefaultAliases(PackageInterface $package, &$class, &$basePath, $isRoot)
     {
         $autoload = $package->getAutoload();
 
@@ -275,7 +298,7 @@ class Installer extends LibraryInstaller
 
         $fs = new Filesystem();
         $vendorDir = $fs->normalizePath($this->vendorDir);
-        $aliases = array();
+        $aliases = [];
 
         foreach ($autoload['psr-4'] as $namespace => $path) {
             if (is_array($path)) {
@@ -284,22 +307,29 @@ class Installer extends LibraryInstaller
             }
 
             // Normalize $path to an absolute path
+            $cwd = $fs->normalizePath(getcwd());
             if (!$fs->isAbsolutePath($path)) {
-                $path = $this->vendorDir.'/'.$package->getPrettyName().'/'.$path;
+                if ($isRoot) {
+                    $path = $cwd . '/' . $path;
+                } else {
+                    $path = $this->vendorDir . '/' . $package->getPrettyName() . '/' . $path;
+                }
             }
 
             $path = $fs->normalizePath($path);
-            $alias = '@'.str_replace('\\', '/', trim($namespace, '\\'));
+            $alias = '@' . str_replace('\\', '/', trim($namespace, '\\'));
 
-            if (strpos($path.'/', $vendorDir.'/') === 0) {
-                $aliases[$alias] = '<vendor-dir>'.substr($path, strlen($vendorDir));
+            if (strpos($path . '/', $vendorDir . '/') === 0) {
+                $aliases[$alias] = '<vendor-dir>' . substr($path, strlen($vendorDir));
+            } else if (strpos($path . '/', $cwd . '/') === 0) {
+                $aliases[$alias] = '<root-dir>' . substr($path, strlen($cwd));
             } else {
                 $aliases[$alias] = $path;
             }
 
             // If we're still looking for the primary Plugin class, see if it's in here
-            if ($class === null && file_exists($path.'/Plugin.php')) {
-                $class = $namespace.'Plugin';
+            if ($class === null && file_exists($path . '/Plugin.php')) {
+                $class = $namespace . 'Plugin';
             }
 
             // If we're still looking for the base path but we know the primary Plugin class,
@@ -308,12 +338,12 @@ class Installer extends LibraryInstaller
             if ($basePath === null && $class !== null) {
                 $n = strlen($namespace);
                 if (strncmp($namespace, $class, $n) === 0) {
-                    $testClassPath = $path.'/'.str_replace('\\', '/', substr($class, $n)).'.php';
+                    $testClassPath = $path . '/' . str_replace('\\', '/', substr($class, $n)) . '.php';
                     if (file_exists($testClassPath)) {
                         $basePath = dirname($testClassPath);
                         // If the base path starts with the vendor dir path, swap with <vendor-dir>
-                        if (strpos($basePath.'/', $vendorDir.'/') === 0) {
-                            $basePath = '<vendor-dir>'.substr($basePath, strlen($vendorDir));
+                        if (strpos($basePath . '/', $vendorDir . '/') === 0) {
+                            $basePath = '<vendor-dir>' . substr($basePath, strlen($vendorDir));
                         }
                     }
                 }
@@ -325,7 +355,7 @@ class Installer extends LibraryInstaller
 
     /**
      * @param PackageInterface $package
-     * @param string           $property
+     * @param string $property
      *
      * @return null
      */
@@ -383,10 +413,10 @@ class Installer extends LibraryInstaller
      */
     protected function loadPlugins()
     {
-        $file = $this->vendorDir.'/'.static::PLUGINS_FILE;
+        $file = $this->vendorDir . '/' . static::PLUGINS_FILE;
 
         if (!is_file($file)) {
-            return array();
+            return [];
         }
 
         // Invalidate opcache of plugins.php if it exists
@@ -405,16 +435,16 @@ class Installer extends LibraryInstaller
             // basePath
             if (isset($plugin['basePath'])) {
                 $path = str_replace('\\', '/', $plugin['basePath']);
-                if (strpos($path.'/', $vendorDir.'/') === 0) {
-                    $plugin['basePath'] = '<vendor-dir>'.substr($path, $n);
+                if (strpos($path . '/', $vendorDir . '/') === 0) {
+                    $plugin['basePath'] = '<vendor-dir>' . substr($path, $n);
                 }
             }
             // aliases
             if (isset($plugin['aliases'])) {
                 foreach ($plugin['aliases'] as $alias => $path) {
                     $path = str_replace('\\', '/', $path);
-                    if (strpos($path.'/', $vendorDir.'/') === 0) {
-                        $plugin['aliases'][$alias] = '<vendor-dir>'.substr($path, $n);
+                    if (strpos($path . '/', $vendorDir . '/') === 0) {
+                        $plugin['aliases'][$alias] = '<vendor-dir>' . substr($path, $n);
                     }
                 }
             }
@@ -428,14 +458,17 @@ class Installer extends LibraryInstaller
      */
     protected function savePlugins(array $plugins)
     {
-        $file = $this->vendorDir.'/'.static::PLUGINS_FILE;
+        $file = $this->vendorDir . '/' . static::PLUGINS_FILE;
 
         if (!file_exists(dirname($file))) {
             mkdir(dirname($file), 0777, true);
         }
 
-        $array = str_replace("'<vendor-dir>", '$vendorDir . \'', var_export($plugins, true));
-        file_put_contents($file, "<?php\n\n\$vendorDir = dirname(__DIR__);\n\nreturn $array;\n");
+        $array = str_replace(["'<vendor-dir>", "'<root-dir>"], ['$vendorDir . \'', '$rootDir . \''], var_export($plugins, true));
+        $fs = new Filesystem();
+        file_put_contents($file, "<?php\n\n\$vendorDir = dirname(__DIR__);\n" .
+            "\$rootDir = " . $fs->findShortestPathCode($this->vendorDir . '/craftcms', getcwd(), true) . ";\n\n" .
+            "return $array;\n");
 
         // Invalidate opcache of plugins.php if it exists
         if (function_exists('opcache_invalidate')) {

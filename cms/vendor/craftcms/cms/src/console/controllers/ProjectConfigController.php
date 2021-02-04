@@ -8,37 +8,106 @@
 namespace craft\console\controllers;
 
 use Craft;
+use craft\console\Controller;
 use craft\db\Table;
+use craft\events\ConfigEvent;
 use craft\helpers\Console;
+use craft\helpers\Db;
+use craft\helpers\ProjectConfig;
 use craft\services\Plugins;
-use yii\console\Controller;
+use craft\services\ProjectConfig as ProjectConfigService;
 use yii\console\ExitCode;
 
 /**
- * Manages the project config.
+ * Manages the Project Config.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.1
+ * @since 3.1.0
  */
 class ProjectConfigController extends Controller
 {
     /**
-     * @var bool Whether every entry change should be force-synced.
+     * @var bool Whether every entry change should be force-applied.
      */
     public $force = false;
 
     /**
-     * Syncs the project config.
+     * @var bool Whether to treat the loaded project config as the source of truth, instead of the YAML files.
+     * @since 3.5.13
+     */
+    public $invert = false;
+
+    /**
+     * @var array Keeps track of announced processed paths
+     * @since 3.6.0
+     */
+    protected $announcedPaths = [];
+
+    /**
+     * @inheritdoc
+     */
+    public function options($actionID)
+    {
+        $options = parent::options($actionID);
+
+        switch ($actionID) {
+            case 'apply':
+            case 'sync':
+                $options[] = 'force';
+                break;
+            case 'diff':
+                $options[] = 'reverse';
+        }
+
+        return $options;
+    }
+
+    /**
+     * See a diff of the pending project config YAML changes.
      *
      * @return int
+     * @since 3.5.6
      */
-    public function actionSync(): int
+    public function actionDiff(): int
     {
-        if (!Craft::$app->getConfig()->getGeneral()->useProjectConfigFile) {
-            $this->stdout('Craft is not configured to use project.yaml. Please enable the \'useProjectConfigFile\' config setting in config/general.php.' . PHP_EOL, Console::FG_YELLOW);
+        $diff = ProjectConfig::diff($this->invert);
+
+        if ($diff === '') {
+            $this->stdout('No pending project config YAML changes.' . PHP_EOL, Console::FG_GREEN);
             return ExitCode::OK;
         }
 
+        if (!$this->isColorEnabled()) {
+            $this->stdout($diff . PHP_EOL . PHP_EOL);
+            return ExitCode::OK;
+        }
+
+        foreach (explode("\n", $diff) as $line) {
+            $firstChar = $line[0] ?? '';
+            switch ($firstChar) {
+                case '-':
+                    $this->stdout($line . PHP_EOL, Console::FG_RED);
+                    break;
+                case '+':
+                    $this->stdout($line . PHP_EOL, Console::FG_GREEN);
+                    break;
+                default:
+                    $this->stdout($line . PHP_EOL);
+                    break;
+            }
+        }
+
+        $this->stdout(PHP_EOL);
+        return ExitCode::OK;
+    }
+
+    /**
+     * Applies project config file changes.
+     *
+     * @return int
+     */
+    public function actionApply(): int
+    {
         $updatesService = Craft::$app->getUpdates();
 
         if ($updatesService->getIsCraftDbMigrationNeeded() || $updatesService->getIsPluginDbUpdateNeeded()) {
@@ -48,31 +117,55 @@ class ProjectConfigController extends Controller
 
         $projectConfig = Craft::$app->getProjectConfig();
 
-        if (!$projectConfig->getAreConfigSchemaVersionsCompatible()) {
-            $this->stdout('Your `project.yaml` file was created for different versions of Craft and/or plugins than what’s currently installed. Try running `composer install` from your terminal to resolve.' . PHP_EOL, Console::FG_YELLOW);
-            return ExitCode::OK;
+        $issues = [];
+        if (!$projectConfig->getAreConfigSchemaVersionsCompatible($issues)) {
+            $this->stderr("Your project config files were created for different versions of Craft and/or plugins than what’s currently installed." . PHP_EOL . PHP_EOL, Console::FG_YELLOW);
+
+            foreach ($issues as $issue) {
+                $this->stderr($issue['cause'], Console::FG_RED);
+                $this->stderr(' is installed with schema version of ', Console::FG_YELLOW);
+                $this->stderr($issue['existing'], Console::FG_RED);
+                $this->stderr(' while ', Console::FG_YELLOW);
+                $this->stderr($issue['incoming'], Console::FG_RED);
+                $this->stderr(' was expected.' . PHP_EOL, Console::FG_YELLOW);
+            }
+
+            $this->stderr(PHP_EOL . 'Try running `composer install` from your terminal to resolve.' . PHP_EOL, Console::FG_YELLOW);
+            return ExitCode::UNSPECIFIED_ERROR;
         }
 
         // Do we need to create a new config file?
-        if (!file_exists(Craft::$app->getPath()->getProjectConfigFilePath())) {
-            $this->stdout('No project.yaml file found. Generating one from internal config ... ', Console::FG_YELLOW);
+        if (!$projectConfig->getDoesYamlExist()) {
+            $this->stdout("No project config files found. Generating them from internal config ... ", Console::FG_YELLOW);
             $projectConfig->regenerateYamlFromConfig();
         } else {
             // Any plugins need to be installed/uninstalled?
             $loadedConfigPlugins = array_keys($projectConfig->get(Plugins::CONFIG_PLUGINS_KEY) ?? []);
             $yamlPlugins = array_keys($projectConfig->get(Plugins::CONFIG_PLUGINS_KEY, true) ?? []);
-            $this->_uninstallPlugins(array_diff($loadedConfigPlugins, $yamlPlugins));
 
             if (!$this->_installPlugins(array_diff($yamlPlugins, $loadedConfigPlugins))) {
-                $this->stdout('Aborting config sync' . PHP_EOL, Console::FG_RED);
+                $this->stdout('Aborting config apply process' . PHP_EOL, Console::FG_RED);
                 return ExitCode::UNSPECIFIED_ERROR;
             }
 
-            $this->stdout('Applying changes from project.yaml ... ', Console::FG_YELLOW);
+            $this->_uninstallPlugins(array_diff($loadedConfigPlugins, $yamlPlugins));
+            
+            $this->stdout("Applying changes from your project config files ... " . PHP_EOL);
+
             try {
                 $forceUpdate = $projectConfig->forceUpdate;
                 $projectConfig->forceUpdate = $this->force;
+
+                $projectConfig->on(ProjectConfigService::EVENT_ADD_ITEM, $this->_generateOutputFunction('adding '), null, false);
+                $projectConfig->on(ProjectConfigService::EVENT_REMOVE_ITEM, $this->_generateOutputFunction('removing '), null, false);
+                $projectConfig->on(ProjectConfigService::EVENT_UPDATE_ITEM, $this->_generateOutputFunction('updating '), null, false);
+
+                $projectConfig->on(ProjectConfigService::EVENT_ADD_ITEM, function () { $this->stdout(' ... '); $this->stdout('done' . PHP_EOL, Console::FG_GREEN);});
+                $projectConfig->on(ProjectConfigService::EVENT_REMOVE_ITEM, function () { $this->stdout(' ... '); $this->stdout('done' . PHP_EOL, Console::FG_GREEN);});
+                $projectConfig->on(ProjectConfigService::EVENT_UPDATE_ITEM, function () { $this->stdout(' ... '); $this->stdout('done' . PHP_EOL, Console::FG_GREEN);});
+
                 $projectConfig->applyYamlChanges();
+
                 $projectConfig->forceUpdate = $forceUpdate;
             } catch (\Throwable $e) {
                 $this->stderr('error: ' . $e->getMessage() . PHP_EOL, Console::FG_RED);
@@ -81,6 +174,32 @@ class ProjectConfigController extends Controller
             }
         }
 
+        $this->stdout('Finished applying changes' . PHP_EOL, Console::FG_GREEN);
+        return ExitCode::OK;
+    }
+
+    /**
+     * Alias for `apply`.
+     *
+     * @return int
+     * @deprecated in 3.5.0. Use [[actionApply()]] instead.
+     */
+    public function actionSync(): int
+    {
+        $this->stderr('project-config/sync has been renamed to project-config/apply. Running that instead...' . PHP_EOL, Console::FG_RED);
+        return $this->runAction('apply');
+    }
+
+    /**
+     * Writes out the current project config as YAML files to the `config/project/` folder, discarding any pending YAML changes.
+     *
+     * @return int
+     * @since 3.5.13
+     */
+    public function actionWrite(): int
+    {
+        $this->stdout('Writing out project config files ... ');
+        Craft::$app->getProjectConfig()->regenerateYamlFromConfig();
         $this->stdout('done' . PHP_EOL, Console::FG_GREEN);
         return ExitCode::OK;
     }
@@ -89,10 +208,17 @@ class ProjectConfigController extends Controller
      * Rebuilds the project config.
      *
      * @return int
+     * @since 3.1.20
      */
     public function actionRebuild(): int
     {
         $projectConfig = Craft::$app->getProjectConfig();
+
+        if ($projectConfig->writeYamlAutomatically && !$projectConfig->getDoesYamlExist()) {
+            $this->stdout("No project config files found. Generating them from internal config ... ", Console::FG_YELLOW);
+            $projectConfig->regenerateYamlFromConfig();
+        }
+
         $this->stdout('Rebuilding the project config from the current state ... ', Console::FG_YELLOW);
 
         try {
@@ -104,6 +230,19 @@ class ProjectConfigController extends Controller
         }
 
         $this->stdout('done' . PHP_EOL, Console::FG_GREEN);
+        return ExitCode::OK;
+    }
+
+    /**
+     * Updates the `dateModified` value in `config/project/project.yaml`, attempting to resolve a Git conflict for it.
+     *
+     * @return int
+     */
+    public function actionTouch(): int
+    {
+        $time = time();
+        ProjectConfig::touch($time);
+        $this->stdout("The dateModified value in project.yaml is now set to $time." . PHP_EOL, Console::FG_GREEN);
         return ExitCode::OK;
     }
 
@@ -133,9 +272,9 @@ class ProjectConfigController extends Controller
                 Craft::$app->getErrorHandler()->logException($e);
 
                 // Just remove the row
-                Craft::$app->getDb()->createCommand()
-                    ->delete(Table::PLUGINS, ['handle' => $handle])
-                    ->execute();
+                Db::delete(Table::PLUGINS, [
+                    'handle' => $handle,
+                ]);
             }
         }
     }
@@ -173,16 +312,23 @@ class ProjectConfigController extends Controller
     }
 
     /**
-     * @inheritdoc
+     * Generate an output function for logging.
+     *
+     * @param $mode
+     * @return callable
      */
-    public function options($actionID)
+    private function _generateOutputFunction($mode): callable
     {
-        $options = parent::options($actionID);
+        return function (ConfigEvent $configEvent) use ($mode) {
+            $key = $mode . $configEvent->path;
 
-        if ($actionID == 'sync') {
-            $options[] = 'force';
-        }
+            if (isset($this->announcedPaths[$key])) {
+                return;
+            }
+            $this->announcedPaths[$key] = true;
 
-        return $options;
+            $this->stdout(' - ' . $mode);
+            $this->stdout($configEvent->path, Console::FG_CYAN);
+        };
     }
 }

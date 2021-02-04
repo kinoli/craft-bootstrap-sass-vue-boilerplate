@@ -14,28 +14,23 @@ use Twig\Error\LoaderError as TwigLoaderError;
 use Twig\Error\RuntimeError as TwigRuntimeError;
 use Twig\Error\SyntaxError as TwigSyntaxError;
 use Twig\Template;
-use yii\base\UserException;
+use yii\base\Exception;
 use yii\log\FileTarget;
 use yii\web\HttpException;
+use yii\web\NotFoundHttpException;
 
 /**
  * Class ErrorHandler
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class ErrorHandler extends \yii\web\ErrorHandler
 {
-    // Constants
-    // =========================================================================
-
     /**
      * @event ExceptionEvent The event that is triggered before handling an exception.
      */
     const EVENT_BEFORE_HANDLE_EXCEPTION = 'beforeHandleException';
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * @inheritdoc
@@ -120,16 +115,31 @@ class ErrorHandler extends \yii\web\ErrorHandler
             $file === __DIR__ . DIRECTORY_SEPARATOR . 'twig' . DIRECTORY_SEPARATOR . 'Template.php';
     }
 
-    // Protected Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
     protected function renderException($exception)
     {
-        // Treat UserExceptions like normal exceptions when Dev Mode is enabled
-        if (YII_DEBUG && $exception instanceof UserException) {
+        // Set the response format back to HTML if it's still set to raw
+        if (Craft::$app->has('response')) {
+            $response = Craft::$app->getResponse();
+            if ($response->format === Response::FORMAT_RAW) {
+                $response->format = Response::FORMAT_HTML;
+            }
+        }
+
+        // Show a broken image for image requests
+        if (
+            $exception instanceof NotFoundHttpException &&
+            Craft::$app->has('request') &&
+            Craft::$app->getRequest()->getAcceptsImage() &&
+            Craft::$app->getConfig()->getGeneral()->brokenImagePath
+        ) {
+            $this->errorAction = 'app/broken-image';
+        }
+        // Show the full exception view for all exceptions when Dev Mode is enabled (don't skip `UserException`s)
+        // or if the user is an admin and has indicated they want to see it
+        else if ($this->_showExceptionView()) {
             $this->errorAction = null;
             $this->errorView = $this->exceptionView;
         }
@@ -159,5 +169,80 @@ class ErrorHandler extends \yii\web\ErrorHandler
         }
 
         return $url;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function renderCallStackItem($file, $line, $class, $method, $args, $index)
+    {
+        if (strpos($file, 'compiled_templates') !== false) {
+            try {
+                [$file, $line] = $this->_resolveTemplateTrace($file, $line);
+            } catch (\Throwable $e) {
+                // oh well, we tried
+            }
+        }
+
+        return parent::renderCallStackItem($file, $line, $class, $method, $args, $index);
+    }
+
+    /**
+     * Attempts to swap out debug trace info with template info.
+     *
+     * @throws \Throwable
+     */
+    private function _resolveTemplateTrace(string $traceFile, int $traceLine = null)
+    {
+        $contents = file_get_contents($traceFile);
+        if (!preg_match('/^class (\w+)/m', $contents, $match)) {
+            throw new Exception("Unable to determine template class in $traceFile");
+        }
+        $class = $match[1];
+        /** @var Template $template */
+        $template = new $class(Craft::$app->getView()->getTwig());
+        $src = $template->getSourceContext();
+        //                $this->sourceCode = $src->getCode();
+        $file = $src->getPath();
+        $line = null;
+
+        if ($traceLine !== null) {
+            foreach ($template->getDebugInfo() as $codeLine => $templateLine) {
+                if ($codeLine <= $traceLine) {
+                    $line = $templateLine;
+                    break;
+                }
+            }
+        }
+
+        return [$file, $line];
+    }
+
+    /**
+     * Returns whether the full exception view should be shown.
+     *
+     * @return bool
+     */
+    private function _showExceptionView(): bool
+    {
+        if (YII_DEBUG) {
+            return true;
+        }
+
+        $user = Craft::$app->getUser()->getIdentity();
+        return (
+            $user &&
+            $user->admin &&
+            $user->getPreference('showExceptionView')
+        );
+    }
+
+    /**
+     * @inheritdoc
+     * @since 3.4.10
+     */
+    protected function shouldRenderSimpleHtml()
+    {
+        return YII_ENV_TEST || (Craft::$app->has('request', true) && Craft::$app->request->getIsAjax());
     }
 }

@@ -13,67 +13,49 @@ use DateInterval;
 use DateTime;
 use DateTimeImmutable;
 use DateTimeZone;
+use yii\base\ErrorException;
 
 /**
  * Class DateTimeHelper
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class DateTimeHelper
 {
-    // Constants
-    // =========================================================================
-
     /**
-     * Number of seconds in a minute.
-     *
-     * @var int
+     * @var int Number of seconds in a minute.
      */
     const SECONDS_MINUTE = 60;
 
     /**
-     * Number of seconds in an hour.
-     *
-     * @var int
+     * @var int Number of seconds in an hour.
      */
     const SECONDS_HOUR = 3600;
 
     /**
-     * Number of seconds in a day.
-     *
-     * @var int
+     * @var int Number of seconds in a day.
      */
     const SECONDS_DAY = 86400;
 
     /**
-     * The number of seconds in a month.
+     * @var int The number of seconds in a month.
      *
      * Based on a 30.4368 day month, with the product rounded.
-     *
-     * @var int
      */
     const SECONDS_MONTH = 2629740;
 
     /**
-     * The number of seconds in a year.
+     * @var int The number of seconds in a year.
      *
      * Based on a 365.2416 day year, with the product rounded.
-     *
-     * @var int
      */
     const SECONDS_YEAR = 31556874;
-
-    // Properties
-    // =========================================================================
 
     /**
      * @var array Translation pairs for [[translateDate()]]
      */
     private static $_translationPairs;
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * Converts a value into a DateTime object.
@@ -85,8 +67,8 @@ class DateTimeHelper
      *  - Relaxed versions of W3C and MySQL formats (single-digit months, days, and hours)
      *  - Unix timestamps
      *  - An array with at least one of these keys defined: `datetime`, `date`, or `time`. Supported keys include:
-     *      - `date` – a date string in `YYYY-MM-DD` format or the current locale’s short date format
-     *      - `time` – a time string in `HH:MM` (24-hour) format or the current locale’s short time format
+     *      - `date` – a date string in `YYYY-MM-DD` or `YYYY-MM-DD HH:MM:SS.MU` formats or the current locale’s short date format
+     *      - `time` – a time string in `HH:MM` or `HH:MM:SS` (24-hour) format or the current locale’s short time format
      *      - `datetime` – A timestamp in any of the non-array formats supported by this method
      *      - `timezone` – A [valid PHP timezone](http://php.net/manual/en/timezones.php). If set, this will override
      *        the assumed timezone per `$assumeSystemTimeZone`.
@@ -124,14 +106,14 @@ class DateTimeHelper
 
             // Did they specify a full timestamp ?
             if (!empty($value['datetime'])) {
-                list($date, $format) = self::_parseDateTime($value['datetime'], $timeZone);
+                [$date, $format] = self::_parseDateTime($value['datetime'], $timeZone);
                 if ($format === false) {
                     return false;
                 }
             } else {
                 // Did they specify a date?
                 if (!empty($value['date'])) {
-                    list($date, $format) = self::_parseDate($value['date']);
+                    [$date, $format] = self::_parseDate($value['date']);
                 } else {
                     // Default to the current date
                     $format = 'Y-m-d';
@@ -140,7 +122,7 @@ class DateTimeHelper
 
                 // Did they specify a time?
                 if (!empty($value['time'])) {
-                    list($time, $timeFormat) = self::_parseTime($value['time']);
+                    [$time, $timeFormat] = self::_parseTime($value['time']);
                     $format .= ' ' . $timeFormat;
                     $date .= ' ' . $time;
                 }
@@ -150,7 +132,7 @@ class DateTimeHelper
                 $date .= ' ' . $timeZone;
             }
         } else {
-            list($date, $format) = self::_parseDateTime($value, $defaultTimeZone);
+            [$date, $format] = self::_parseDateTime($value, $defaultTimeZone);
             if ($format === false) {
                 return false;
             }
@@ -289,11 +271,11 @@ class DateTimeHelper
      * @param string|null $language The language code (e.g. `en-US`, `en`). If this is null, the current
      * [[\yii\base\Application::language|application language]] will be used.
      * @return string The translated date string
-     * @deprecated in 3.0.6. Use [[craft\i18n\Formatter::asDate()]] instead.
+     * @deprecated in 3.0.6. Use [[\craft\i18n\Formatter::asDate()]] instead.
      */
-    public static function translateDate(string $str, string $language = null): string
+    public static function translateDate(string $str, ?string $language = null): string
     {
-        Craft::$app->getDeprecator()->log(__METHOD__, __METHOD__ . ' is deprecated. Use craft\i18n\Formatter::asDate() instead.');
+        Craft::$app->getDeprecator()->log(__METHOD__, '`' . __METHOD__ . '` is deprecated. Use `craft\i18n\Formatter::asDate()` instead.');
 
         if ($language === null) {
             $language = Craft::$app->language;
@@ -340,23 +322,23 @@ class DateTimeHelper
         $timeComponents = [];
 
         if ($weeks) {
-            $timeComponents[] = $weeks == 1 ? Craft::t('app', '1 week') : Craft::t('app', '{num} weeks', ['num' => $weeks]);
+            $timeComponents[] = Craft::t('app', '{num, number} {num, plural, =1{week} other{weeks}}', ['num' => $weeks]);
         }
 
         if ($days) {
-            $timeComponents[] = $days == 1 ? Craft::t('app', '1 day') : Craft::t('app', '{num} days', ['num' => $days]);
+            $timeComponents[] = Craft::t('app', '{num, number} {num, plural, =1{day} other{days}}', ['num' => $days]);
         }
 
         if ($hours) {
-            $timeComponents[] = $hours == 1 ? Craft::t('app', '1 hour') : Craft::t('app', '{num} hours', ['num' => $hours]);
+            $timeComponents[] = Craft::t('app', '{num, number} {num, plural, =1{hour} other{hours}}', ['num' => $hours]);
         }
 
         if ($minutes || (!$showSeconds && !$weeks && !$days && !$hours)) {
-            $timeComponents[] = $minutes == 1 ? Craft::t('app', '1 minute') : Craft::t('app', '{num} minutes', ['num' => $minutes]);
+            $timeComponents[] = Craft::t('app', '{num, number} {num, plural, =1{minute} other{minutes}}', ['num' => $minutes]);
         }
 
         if ($seconds || ($showSeconds && !$weeks && !$days && !$hours && !$minutes)) {
-            $timeComponents[] = $seconds == 1 ? Craft::t('app', '1 second') : Craft::t('app', '{num} seconds', ['num' => $seconds]);
+            $timeComponents[] = Craft::t('app', '{num, number} {num, plural, =1{second} other{seconds}}', ['num' => $seconds]);
         }
 
         return implode(', ', $timeComponents);
@@ -520,7 +502,11 @@ class DateTimeHelper
      */
     public static function isValidIntervalString(string $intervalString): bool
     {
-        $interval = DateInterval::createFromDateString($intervalString);
+        try {
+            $interval = DateInterval::createFromDateString($intervalString);
+        } catch (ErrorException $e) {
+            return false;
+        }
 
         return $interval->s != 0 || $interval->i != 0 || $interval->h != 0 || $interval->d != 0 || $interval->m != 0 || $interval->y != 0;
     }
@@ -537,19 +523,19 @@ class DateTimeHelper
         $timeComponents = [];
 
         if ($dateInterval->y) {
-            $timeComponents[] = $dateInterval->y == 1 ? Craft::t('app', '1 year') : Craft::t('app', '{num} years', ['num' => $dateInterval->y]);
+            $timeComponents[] = Craft::t('app', '{num, number} {num, plural, =1{year} other{years}}', ['num' => $dateInterval->y]);
         }
 
         if ($dateInterval->m) {
-            $timeComponents[] = $dateInterval->m == 1 ? Craft::t('app', '1 month') : Craft::t('app', '{num} months', ['num' => $dateInterval->m]);
+            $timeComponents[] = Craft::t('app', '{num, number} {num, plural, =1{month} other{months}}', ['num' => $dateInterval->m]);
         }
 
         if ($dateInterval->d) {
-            $timeComponents[] = $dateInterval->d == 1 ? Craft::t('app', '1 day') : Craft::t('app', '{num} days', ['num' => $dateInterval->d]);
+            $timeComponents[] = Craft::t('app', '{num, number} {num, plural, =1{day} other{days}}', ['num' => $dateInterval->d]);
         }
 
         if ($dateInterval->h) {
-            $timeComponents[] = $dateInterval->h == 1 ? Craft::t('app', '1 hour') : Craft::t('app', '{num} hours', ['num' => $dateInterval->h]);
+            $timeComponents[] = Craft::t('app', '{num, number} {num, plural, =1{hour} other{hours}}', ['num' => $dateInterval->h]);
         }
 
         $minutes = $dateInterval->i;
@@ -563,11 +549,11 @@ class DateTimeHelper
         }
 
         if ($minutes) {
-            $timeComponents[] = $minutes == 1 ? Craft::t('app', '1 minute') : Craft::t('app', '{num} minutes', ['num' => $minutes]);
+            $timeComponents[] = Craft::t('app', '{num, number} {num, plural, =1{minute} other{minutes}}', ['num' => $minutes]);
         }
 
         if ($showSeconds && $dateInterval->s) {
-            $timeComponents[] = $dateInterval->s == 1 ? Craft::t('app', '1 second') : Craft::t('app', '{num} seconds', ['num' => $dateInterval->s]);
+            $timeComponents[] = Craft::t('app', '{num, number} {num, plural, =1{second} other{seconds}}', ['num' => $dateInterval->s]);
         }
 
         $last = array_pop($timeComponents);
@@ -584,9 +570,6 @@ class DateTimeHelper
         return $string;
     }
 
-    // Private Methods
-    // =========================================================================
-
     /**
      * Normalizes and returns a date string along with the format it was set in.
      *
@@ -597,13 +580,17 @@ class DateTimeHelper
     {
         $value = trim($value);
 
-        // First see if it's in YYYY-MM-DD format
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
-            return [$value, 'Y-m-d'];
+        // First see if it's in YYYY-MM-DD or YYYY-MM-DD HH:MM:SS.MU formats
+        if (preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2}\.\d+)?$/', $value, $match)) {
+            $format = 'Y-m-d';
+            if (!empty($match[1])) {
+                $format .= ' H:i:s.u';
+            }
+            return [$value, $format];
         }
 
         // Get the locale's short date format
-        $format = Craft::$app->getLocale()->getDateFormat(Locale::LENGTH_SHORT, Locale::FORMAT_PHP);
+        $format = Craft::$app->getFormattingLocale()->getDateFormat(Locale::LENGTH_SHORT, Locale::FORMAT_PHP);
 
         // Make sure it's a 4-digit year
         $format = StringHelper::replace($format, 'y', 'Y');
@@ -640,17 +627,17 @@ class DateTimeHelper
         $value = trim($value);
 
         // First see if it's in HH:MM format
-        if (preg_match('/^\d{2}:\d{2}$/', $value)) {
-            return [$value, 'H:i'];
+        if (preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $value, $matches)) {
+            return [$value, 'H:i' . (isset($matches[1]) ? ':s' : '')];
         }
 
-        // Get the locale's short time format
-        $locale = Craft::$app->getLocale();
-        $format = $locale->getTimeFormat(Locale::LENGTH_SHORT, Locale::FORMAT_PHP);
+        // Get the formatting locale's short time format
+        $formattingLocale = Craft::$app->getFormattingLocale();
+        $format = $formattingLocale->getTimeFormat(Locale::LENGTH_SHORT, Locale::FORMAT_PHP);
 
         // Replace the localized "AM" and "PM"
-        $am = $locale->getAMName();
-        $pm = $locale->getPMName();
+        $am = $formattingLocale->getAMName();
+        $pm = $formattingLocale->getPMName();
 
         if (preg_match('/(.*)(' . preg_quote($am, '/') . '|' . preg_quote($pm, '/') . ')(.*)/iu', $value, $matches)) {
             $value = $matches[1] . $matches[3];
@@ -743,13 +730,9 @@ class DateTimeHelper
     private static function _getDateTranslations(string $language): array
     {
         if (!isset(self::$_translationPairs[$language])) {
-            if (strpos(Craft::$app->language, 'en') === 0) {
-                $sourceLocale = Craft::$app->getLocale();
-            } else {
-                $sourceLocale = Craft::$app->getI18n()->getLocaleById('en-US');
-            }
-
-            $targetLocale = Craft::$app->getI18n()->getLocaleById($language);
+            $i18n = Craft::$app->getI18n();
+            $sourceLocale = $i18n->getLocaleById('en-US');
+            $targetLocale = $i18n->getLocaleById($language);
 
             $amName = $targetLocale->getAMName();
             $pmName = $targetLocale->getPMName();

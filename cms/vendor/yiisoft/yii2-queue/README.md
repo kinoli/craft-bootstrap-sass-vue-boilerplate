@@ -8,32 +8,22 @@
 
 An extension for running tasks asynchronously via queues.
 
-It supports queues based on **DB**, **Redis**, **RabbitMQ**, **AMQP**, **Beanstalk** and **Gearman**.
+It supports queues based on **DB**, **Redis**, **RabbitMQ**, **AMQP**, **Beanstalk**, **ActiveMQ** and **Gearman**.
 
 Documentation is at [docs/guide/README.md](docs/guide/README.md).
 
 [![Latest Stable Version](https://poser.pugx.org/yiisoft/yii2-queue/v/stable.svg)](https://packagist.org/packages/yiisoft/yii2-queue)
 [![Total Downloads](https://poser.pugx.org/yiisoft/yii2-queue/downloads.svg)](https://packagist.org/packages/yiisoft/yii2-queue)
-[![Build Status](https://travis-ci.org/yiisoft/yii2-queue.svg?branch=master)](https://travis-ci.org/yiisoft/yii2-queue)
+[![Build Status](https://github.com/yiisoft/yii2-queue/workflows/build/badge.svg)](https://github.com/yiisoft/yii2-queue/actions)
 
 Installation
 ------------
 
-The preferred way to install this extension is through [composer](http://getcomposer.org/download/).
-
-Either run
+The preferred way to install this extension is through [composer](http://getcomposer.org/download/):
 
 ```
 php composer.phar require --prefer-dist yiisoft/yii2-queue
 ```
-
-or add
-
-```
-"yiisoft/yii2-queue": "~2.0.0"
-```
-
-to the require section of your `composer.json` file.
 
 Basic Usage
 -----------

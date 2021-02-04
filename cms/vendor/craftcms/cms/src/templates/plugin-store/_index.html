@@ -5,6 +5,7 @@
 {% do view.registerTranslations('app', [
     "Active installs",
     "Active Trials",
+    "Active trials added to the cart.",
     "Add all to cart",
     "Add to cart",
     "Added to cart",
@@ -34,6 +35,8 @@
     "Continue as guest",
     "Continue",
     "Copy the package’s name for this plugin.",
+    "Couldn’t load active trials.",
+    "Couldn’t load CMS editions.",
     "Coupon Code",
     "CVC",
     "Descending",
@@ -45,10 +48,7 @@
     "For when you’re building a website for yourself or a friend.",
     "For when you’re building something professionally for a client or team.",
     "Free",
-    "Includes Custom login screen logo, Custom site icon, Custom HTML email template, Custom email message wording",
-    "Includes Multiple locales, Section and entry locale targeting, Content translations",
-    "Includes Sections, Global sets, Category groups, Tag groups, Asset volumes, Custom fields, Entry versioning, and Entry drafts",
-    "Includes User accounts, User groups, User permissions, Public user registration",
+    "Go to Dashboard",
     "Information",
     "Install",
     "Installed as a trial",
@@ -67,16 +67,15 @@
     "More",
     "Multi-site Multi-lingual",
     "Name",
+    "Only up to {version} is compatible with your version of Craft.",
     "Package Name",
     "Page not found.",
     "Pay",
     "Payment Method",
     "Payment",
-    "Plugin Name",
     "Plugin Store",
     "Popularity",
     "Price includes 1 year of updates.",
-    "Price",
     "Pro Rate Discount",
     "Reactivate",
     "Remove",
@@ -94,6 +93,7 @@
     "System Branding",
     "Thank You!",
     "The Plugin Store is not available, please try again later.",
+    "This plugin isn’t compatible with your version of Craft.",
     "Total Price",
     "Total",
     "Try for free",
@@ -120,6 +120,9 @@
     "Your license key is invalid.",
     "Critical",
     "Couldn’t add all items to the cart.",
+    "No results.",
+    "This license is tied to another Craft install. Visit {accountLink} to detach it, or buy a new license.",
+
 ]) %}
 
 {% block actionButton %}
@@ -127,9 +130,9 @@
 
     <div id="pluginstore-actions" class="hidden">
 
-        <a id="cart-button" role="button" tabindex="0">{{ svg('@app/icons/shopping-cart.svg', namespace=true) }} <span class="badge">0</span></a>
+        <a id="cart-button" role="button" tabindex="0">{{ svg('@appicons/shopping-cart.svg', namespace=true) }} <span class="badge">0</span></a>
 
-        <a id="craftid-account" class="menubtn hidden"><span class="photo">{{ svg('@app/icons/craftid.svg', namespace=true) }}</span><span class="label">Account</span></a>
+        <a id="craftid-account" class="menubtn hidden"><span class="photo">{{ svg('@appicons/craftid.svg', namespace=true) }}</span><span class="label">Account</span></a>
 
         <div class="menu">
             <ul>
@@ -137,7 +140,7 @@
                 <li>
                     <form method="post" id="disconnect">
                         {{ csrfInput() }}
-                        <input type="hidden" name="action" value="plugin-store/disconnect">
+                        {{ actionInput('plugin-store/disconnect') }}
                         <a onclick="document.getElementById('disconnect').submit();">{{ "Sign out from Craft ID"|t('app') }}</a>
                     </form>
                 </li>
@@ -146,8 +149,8 @@
 
         <form id="craftid-connect-form" method="post">
             {{ csrfInput() }}
-            <input type="hidden" name="action" value="plugin-store/connect">
-            <div class="ssl-status light" title="{{ craft.app.request.isSecureConnection ? "Your connection is secure"|t('app') : "Your connection is insecure"|t('app') }}">
+            {{ actionInput('plugin-store/connect') }}
+            <div class="ssl-status light" title="{{ craft.app.request.isSecureConnection ? "Your connection is secure"|t('app') : "Your connection is insecure"|t('app') }}" aria-label="{{ craft.app.request.isSecureConnection ? "Your connection is secure"|t('app') : "Your connection is insecure"|t('app') }}">
                 <i class="{{ craft.app.request.isSecureConnection ? "secure" : "insecure" }} icon"></i>
             </div>
             <a onclick="document.getElementById('craftid-connect-form').submit();">{{ 'Sign into Craft ID'|t('app') }}</a>

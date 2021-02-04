@@ -16,10 +16,12 @@ use Composer\Composer;
 use Composer\Factory;
 use Composer\Config;
 use Composer\Util\Filesystem;
+use Composer\Util\Platform;
 use Composer\SelfUpdate\Keys;
 use Composer\SelfUpdate\Versions;
 use Composer\IO\IOInterface;
 use Composer\Downloader\FilesystemException;
+use Composer\Downloader\TransportException;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputArgument;
@@ -51,14 +53,18 @@ class SelfUpdateCommand extends BaseCommand
                 new InputOption('stable', null, InputOption::VALUE_NONE, 'Force an update to the stable channel'),
                 new InputOption('preview', null, InputOption::VALUE_NONE, 'Force an update to the preview channel'),
                 new InputOption('snapshot', null, InputOption::VALUE_NONE, 'Force an update to the snapshot channel'),
+                new InputOption('1', null, InputOption::VALUE_NONE, 'Force an update to the stable channel, but only use 1.x versions'),
+                new InputOption('2', null, InputOption::VALUE_NONE, 'Force an update to the stable channel, but only use 2.x versions'),
                 new InputOption('set-channel-only', null, InputOption::VALUE_NONE, 'Only store the channel as the default one and then exit'),
             ))
-            ->setHelp(<<<EOT
+            ->setHelp(
+                <<<EOT
 The <info>self-update</info> command checks getcomposer.org for newer
 versions of composer and if found, installs the latest.
 
 <info>php composer.phar self-update</info>
 
+Read more at https://getcomposer.org/doc/03-cli.md#self-update-selfupdate-
 EOT
             )
         ;
@@ -75,14 +81,17 @@ EOT
         }
 
         $io = $this->getIO();
-        $remoteFilesystem = Factory::createRemoteFilesystem($io, $config);
+        $httpDownloader = Factory::createHttpDownloader($io, $config);
 
-        $versionsUtil = new Versions($config, $remoteFilesystem);
+        $versionsUtil = new Versions($config, $httpDownloader);
 
         // switch channel if requested
-        foreach (array('stable', 'preview', 'snapshot') as $channel) {
+        $requestedChannel = null;
+        foreach (Versions::$channels as $channel) {
             if ($input->getOption($channel)) {
+                $requestedChannel = $channel;
                 $versionsUtil->setChannel($channel);
+                break;
             }
         }
 
@@ -99,6 +108,11 @@ EOT
             return $this->fetchKeys($io, $config);
         }
 
+        // ensure composer.phar location is accessible
+        if (!file_exists($localFilename)) {
+            throw new FilesystemException('Composer update failed: the "'.$localFilename.'" is not accessible');
+        }
+
         // check if current dir is writable and if not try the cache dir from settings
         $tmpDir = is_writable(dirname($localFilename)) ? dirname($localFilename) : $cacheDir;
 
@@ -111,7 +125,7 @@ EOT
         if (function_exists('posix_getpwuid') && function_exists('posix_geteuid')) {
             $composeUser = posix_getpwuid(posix_geteuid());
             $homeOwner = posix_getpwuid(fileowner($home));
-            if (isset($composeUser['name']) && isset($homeOwner['name']) && $composeUser['name'] !== $homeOwner['name']) {
+            if (isset($composeUser['name'], $homeOwner['name']) && $composeUser['name'] !== $homeOwner['name']) {
                 $io->writeError('<warning>You are running composer as "'.$composeUser['name'].'", while "'.$home.'" is owned by "'.$homeOwner['name'].'"</warning>');
             }
         }
@@ -121,8 +135,41 @@ EOT
         }
 
         $latest = $versionsUtil->getLatest();
+        $latestStable = $versionsUtil->getLatest('stable');
+        try {
+            $latestPreview = $versionsUtil->getLatest('preview');
+        } catch (\UnexpectedValueException $e) {
+            $latestPreview = $latestStable;
+        }
         $latestVersion = $latest['version'];
         $updateVersion = $input->getArgument('version') ?: $latestVersion;
+        $currentMajorVersion = preg_replace('{^(\d+).*}', '$1', Composer::getVersion());
+        $updateMajorVersion = preg_replace('{^(\d+).*}', '$1', $updateVersion);
+        $previewMajorVersion = preg_replace('{^(\d+).*}', '$1', $latestPreview['version']);
+
+        if ($versionsUtil->getChannel() === 'stable' && !$input->getArgument('version')) {
+            // if requesting stable channel and no specific version, avoid automatically upgrading to the next major
+            // simply output a warning that the next major stable is available and let users upgrade to it manually
+            if ($currentMajorVersion < $updateMajorVersion) {
+                $skippedVersion = $updateVersion;
+
+                $versionsUtil->setChannel($currentMajorVersion);
+
+                $latest = $versionsUtil->getLatest();
+                $latestStable = $versionsUtil->getLatest('stable');
+                $latestVersion = $latest['version'];
+                $updateVersion = $latestVersion;
+
+                $io->writeError('<warning>A new stable major version of Composer is available ('.$skippedVersion.'), run "composer self-update --'.$updateMajorVersion.'" to update to it. See also https://getcomposer.org/'.$updateMajorVersion.'</warning>');
+            } elseif ($currentMajorVersion < $previewMajorVersion) {
+                // promote next major version if available in preview
+                $io->writeError('<warning>A preview release of the next major version of Composer is available ('.$latestPreview['version'].'), run "composer self-update --preview" to give it a try. See also https://github.com/composer/composer/releases for changelogs.</warning>');
+            }
+        }
+
+        if ($requestedChannel && is_numeric($requestedChannel) && strpos($latestStable['version'], $requestedChannel) !== 0) {
+            $io->writeError('<warning>Warning: You forced the install of '.$latestVersion.' via --'.$requestedChannel.', but '.$latestStable['version'].' is the latest stable version. Updating to it via composer self-update --stable is recommended.</warning>');
+        }
 
         if (preg_match('{^[0-9a-f]{40}$}', $updateVersion) && $updateVersion !== $latestVersion) {
             $io->writeError('<error>You can not update to a specific SHA-1 as those phars are not available for download</error>');
@@ -130,8 +177,19 @@ EOT
             return 1;
         }
 
+        $channelString = $versionsUtil->getChannel();
+        if (is_numeric($channelString)) {
+            $channelString .= '.x';
+        }
+
         if (Composer::VERSION === $updateVersion) {
-            $io->writeError(sprintf('<info>You are already using composer version %s (%s channel).</info>', $updateVersion, $versionsUtil->getChannel()));
+            $io->writeError(
+                sprintf(
+                    '<info>You are already using composer version %s (%s channel).</info>',
+                    $updateVersion,
+                    $channelString
+                )
+            );
 
             // remove all backups except for the most recent, if any
             if ($input->getOption('clean-backups')) {
@@ -152,11 +210,18 @@ EOT
 
         $updatingToTag = !preg_match('{^[0-9a-f]{40}$}', $updateVersion);
 
-        $io->write(sprintf("Updating to version <info>%s</info> (%s channel).", $updateVersion, $versionsUtil->getChannel()));
+        $io->write(sprintf("Upgrading to version <info>%s</info> (%s channel).", $updateVersion, $channelString));
         $remoteFilename = $baseUrl . ($updatingToTag ? "/download/{$updateVersion}/composer.phar" : '/composer.phar');
-        $signature = $remoteFilesystem->getContents(self::HOMEPAGE, $remoteFilename.'.sig', false);
+        try {
+            $signature = $httpDownloader->get($remoteFilename.'.sig')->getBody();
+        } catch (TransportException $e) {
+            if ($e->getStatusCode() === 404) {
+                throw new \InvalidArgumentException('Version "'.$updateVersion.'" could not be found.', 0, $e);
+            }
+            throw $e;
+        }
         $io->writeError('   ', false);
-        $remoteFilesystem->copy(self::HOMEPAGE, $remoteFilename, $tempFilename, !$input->getOption('no-progress'));
+        $httpDownloader->copy($remoteFilename, $tempFilename);
         $io->writeError('');
 
         if (!file_exists($tempFilename) || !$signature) {
@@ -176,7 +241,9 @@ EOT
 
             $sigFile = 'file://'.$home.'/' . ($updatingToTag ? 'keys.tags.pub' : 'keys.dev.pub');
             if (!file_exists($sigFile)) {
-                file_put_contents($home.'/keys.dev.pub', <<<DEVPUBKEY
+                file_put_contents(
+                    $home.'/keys.dev.pub',
+                    <<<DEVPUBKEY
 -----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAnBDHjZS6e0ZMoK3xTD7f
 FNCzlXjX/Aie2dit8QXA03pSrOTbaMnxON3hUL47Lz3g1SC6YJEMVHr0zYq4elWi
@@ -192,8 +259,11 @@ r/TU7BQQIzsZgAiqOGXvVklIgAMiV0iucgf3rNBLjjeNEwNSTTG9F0CtQ+7JLwaE
 wSEuAuRm+pRqi8BRnQ/GKUcCAwEAAQ==
 -----END PUBLIC KEY-----
 DEVPUBKEY
-);
-                file_put_contents($home.'/keys.tags.pub', <<<TAGSPUBKEY
+                );
+
+                file_put_contents(
+                    $home.'/keys.tags.pub',
+                    <<<TAGSPUBKEY
 -----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA0Vi/2K6apCVj76nCnCl2
 MQUPdK+A9eqkYBacXo2wQBYmyVlXm2/n/ZsX6pCLYPQTHyr5jXbkQzBw8SKqPdlh
@@ -209,18 +279,23 @@ TzCFWGk/HM6a4f0IzBWbJ5ot0PIi4amk07IotBXDWwqDiQTwyuGCym5EqWQ2BD95
 RGv89BPD+2DLnJysngsvVaUCAwEAAQ==
 -----END PUBLIC KEY-----
 TAGSPUBKEY
-);
+                );
             }
 
             $pubkeyid = openssl_pkey_get_public($sigFile);
             $algo = defined('OPENSSL_ALGO_SHA384') ? OPENSSL_ALGO_SHA384 : 'SHA384';
-            if (!in_array('SHA384', openssl_get_md_methods())) {
+            if (!in_array('sha384', array_map('strtolower', openssl_get_md_methods()))) {
                 throw new \RuntimeException('SHA384 is not supported by your openssl extension, could not verify the phar file integrity');
             }
             $signature = json_decode($signature, true);
             $signature = base64_decode($signature['sha384']);
             $verified = 1 === openssl_verify(file_get_contents($tempFilename), $signature, $pubkeyid, $algo);
-            openssl_free_key($pubkeyid);
+
+            // PHP 8 automatically frees the key instance and deprecates the function
+            if (PHP_VERSION_ID < 80000) {
+                openssl_free_key($pubkeyid);
+            }
+
             if (!$verified) {
                 throw new \RuntimeException('The phar signature did not match the file you downloaded, this means your public keys are outdated or that the phar file is corrupt/has been modified');
             }
@@ -231,10 +306,8 @@ TAGSPUBKEY
             $this->cleanBackups($rollbackDir);
         }
 
-        if ($err = $this->setLocalPhar($localFilename, $tempFilename, $backupFile)) {
+        if (!$this->setLocalPhar($localFilename, $tempFilename, $backupFile)) {
             @unlink($tempFilename);
-            $io->writeError('<error>The file is corrupted ('.$err->getMessage().').</error>');
-            $io->writeError('<error>Please re-run the self-update command to try again.</error>');
 
             return 1;
         }
@@ -247,6 +320,8 @@ TAGSPUBKEY
         } else {
             $io->writeError('<warning>A backup of the current version could not be written to '.$backupFile.', no rollback possible</warning>');
         }
+
+        return 0;
     }
 
     protected function fetchKeys(IOInterface $io, Config $config)
@@ -312,9 +387,7 @@ TAGSPUBKEY
 
         $io = $this->getIO();
         $io->writeError(sprintf("Rolling back to version <info>%s</info>.", $rollbackVersion));
-        if ($err = $this->setLocalPhar($localFilename, $oldFile)) {
-            $io->writeError('<error>The backup file was corrupted ('.$err->getMessage().').</error>');
-
+        if (!$this->setLocalPhar($localFilename, $oldFile)) {
             return 1;
         }
 
@@ -322,37 +395,49 @@ TAGSPUBKEY
     }
 
     /**
-     * @param  string                                        $localFilename
-     * @param  string                                        $newFilename
-     * @param  string                                        $backupTarget
-     * @throws \Exception
-     * @return \UnexpectedValueException|\PharException|null
+     * Checks if the downloaded/rollback phar is valid then moves it
+     *
+     * @param  string              $localFilename The composer.phar location
+     * @param  string              $newFilename   The downloaded or backup phar
+     * @param  string              $backupTarget  The filename to use for the backup
+     * @throws FilesystemException If the file cannot be moved
+     * @return bool                Whether the phar is valid and has been moved
      */
     protected function setLocalPhar($localFilename, $newFilename, $backupTarget = null)
     {
+        $io = $this->getIO();
+        @chmod($newFilename, fileperms($localFilename));
+
+        // check phar validity
+        if (!$this->validatePhar($newFilename, $error)) {
+            $io->writeError('<error>The '.($backupTarget ? 'update' : 'backup').' file is corrupted ('.$error.')</error>');
+
+            if ($backupTarget) {
+                $io->writeError('<error>Please re-run the self-update command to try again.</error>');
+            }
+
+            return false;
+        }
+
+        // copy current file into backups dir
+        if ($backupTarget) {
+            @copy($localFilename, $backupTarget);
+        }
+
         try {
-            @chmod($newFilename, fileperms($localFilename));
-            if (!ini_get('phar.readonly')) {
-                // test the phar validity
-                $phar = new \Phar($newFilename);
-                // free the variable to unlock the file
-                unset($phar);
-            }
-
-            // copy current file into installations dir
-            if ($backupTarget && file_exists($localFilename)) {
-                @copy($localFilename, $backupTarget);
-            }
-
             rename($newFilename, $localFilename);
 
-            return null;
+            return true;
         } catch (\Exception $e) {
-            if (!$e instanceof \UnexpectedValueException && !$e instanceof \PharException) {
-                throw $e;
+            // see if we can run this operation as an Admin on Windows
+            if (!is_writable(dirname($localFilename))
+                && $io->isInteractive()
+                && $this->isWindowsNonAdminUser()) {
+                return $this->tryAsWindowsAdmin($localFilename, $newFilename);
             }
 
-            return $e;
+            $action = 'Composer '.($backupTarget ? 'update' : 'rollback');
+            throw new FilesystemException($action.' failed: "'.$localFilename.'" could not be written.'.PHP_EOL.$e->getMessage());
         }
     }
 
@@ -387,12 +472,115 @@ TAGSPUBKEY
 
     protected function getOldInstallationFinder($rollbackDir)
     {
-        $finder = Finder::create()
+        return Finder::create()
             ->depth(0)
             ->files()
             ->name('*' . self::OLD_INSTALL_EXT)
             ->in($rollbackDir);
+    }
 
-        return $finder;
+    /**
+     * Validates the downloaded/backup phar file
+     *
+     * @param string      $pharFile The downloaded or backup phar
+     * @param null|string $error    Set by method on failure
+     *
+     * Code taken from getcomposer.org/installer. Any changes should be made
+     * there and replicated here
+     *
+     * @throws \Exception
+     * @return bool       If the operation succeeded
+     */
+    protected function validatePhar($pharFile, &$error)
+    {
+        if (ini_get('phar.readonly')) {
+            return true;
+        }
+
+        try {
+            // Test the phar validity
+            $phar = new \Phar($pharFile);
+            // Free the variable to unlock the file
+            unset($phar);
+            $result = true;
+        } catch (\Exception $e) {
+            if (!$e instanceof \UnexpectedValueException && !$e instanceof \PharException) {
+                throw $e;
+            }
+            $error = $e->getMessage();
+            $result = false;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Returns true if this is a non-admin Windows user account
+     *
+     * @return bool
+     */
+    protected function isWindowsNonAdminUser()
+    {
+        if (!Platform::isWindows()) {
+            return false;
+        }
+
+        // fltmc.exe manages filter drivers and errors without admin privileges
+        exec('fltmc.exe filters', $output, $exitCode);
+
+        return $exitCode !== 0;
+    }
+
+    /**
+     * Invokes a UAC prompt to update composer.phar as an admin
+     *
+     * Uses a .vbs script to elevate and run the cmd.exe move command.
+     *
+     * @param  string $localFilename The composer.phar location
+     * @param  string $newFilename   The downloaded or backup phar
+     * @return bool   Whether composer.phar has been updated
+     */
+    protected function tryAsWindowsAdmin($localFilename, $newFilename)
+    {
+        $io = $this->getIO();
+
+        $io->writeError('<error>Unable to write "'.$localFilename.'". Access is denied.</error>');
+        $helpMessage = 'Please run the self-update command as an Administrator.';
+        $question = 'Complete this operation with Administrator privileges [<comment>Y,n</comment>]? ';
+
+        if (!$io->askConfirmation($question, false)) {
+            $io->writeError('<warning>Operation cancelled. '.$helpMessage.'</warning>');
+
+            return false;
+        }
+
+        $tmpFile = tempnam(sys_get_temp_dir(), '');
+        $script = $tmpFile.'.vbs';
+        rename($tmpFile, $script);
+
+        $checksum = hash_file('sha256', $newFilename);
+
+        // cmd's internal move is fussy about backslashes
+        $source = str_replace('/', '\\', $newFilename);
+        $destination = str_replace('/', '\\', $localFilename);
+
+        $vbs = <<<EOT
+Set UAC = CreateObject("Shell.Application")
+UAC.ShellExecute "cmd.exe", "/c move /y ""$source"" ""$destination""", "", "runas", 0
+Wscript.Sleep(300)
+EOT;
+
+        file_put_contents($script, $vbs);
+        exec('"'.$script.'"');
+        @unlink($script);
+
+        // see if the file was moved
+        if ($result = (hash_file('sha256', $localFilename) === $checksum)) {
+            $io->writeError('<info>Operation succeeded.</info>');
+        } else {
+            $io->writeError('<error>Operation failed (file not written). '.$helpMessage.'</error>');
+        }
+
+        return $result;
     }
 }

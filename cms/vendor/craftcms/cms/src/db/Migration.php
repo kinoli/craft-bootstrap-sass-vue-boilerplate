@@ -16,25 +16,21 @@ use yii\db\ColumnSchemaBuilder;
  * @property Connection $db the DB connection that this command is associated with
  * @method Connection getDb() returns the connection the DB connection that this command is associated with
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 abstract class Migration extends \yii\db\Migration
 {
-    // Constants
-    // =========================================================================
-
     /**
      * @event \yii\base\Event The event that is triggered after the migration is executed
+     * @since 3.0.6
      */
     const EVENT_AFTER_UP = 'afterUp';
 
     /**
      * @event \yii\base\Event The event that is triggered after the migration is reverted
+     * @since 3.0.6
      */
     const EVENT_AFTER_DOWN = 'afterDown';
-
-    // Public Methods
-    // =========================================================================
 
     // Execution Methods
     // -------------------------------------------------------------------------
@@ -110,16 +106,6 @@ abstract class Migration extends \yii\db\Migration
         }
 
         return null;
-    }
-
-    /**
-     * @param \Throwable|\Exception $e
-     */
-    private function _printException($e)
-    {
-        // Copied from \yii\db\Migration::printException(), only because it’s private
-        echo 'Exception: ' . $e->getMessage() . ' (' . $e->getFile() . ':' . $e->getLine() . ")\n";
-        echo $e->getTraceAsString() . "\n";
     }
 
     // Schema Builder Methods
@@ -206,7 +192,7 @@ abstract class Migration extends \yii\db\Migration
     // -------------------------------------------------------------------------
 
     /**
-     * Creates and executes an INSERT SQL statement.
+     * Creates and executes an `INSERT` SQL statement.
      *
      * The method will properly escape the column names, and bind the values to be inserted.
      *
@@ -226,7 +212,7 @@ abstract class Migration extends \yii\db\Migration
     }
 
     /**
-     * Creates and executes an batch INSERT SQL statement.
+     * Creates and executes a batch `INSERT` SQL statement.
      *
      * The method will properly escape the column names, and bind the values to be inserted.
      *
@@ -255,7 +241,6 @@ abstract class Migration extends \yii\db\Migration
      * If `false` is passed, no update will be performed if the column data already exists.
      * @param array $params the parameters to be bound to the command.
      * @param bool $includeAuditColumns Whether `dateCreated`, `dateUpdated`, and `uid` values should be added to $columns.
-     * @return $this the command object itself.
      * @since 2.0.14
      */
     public function upsert($table, $insertColumns, $updateColumns = true, $params = [], bool $includeAuditColumns = true)
@@ -263,7 +248,7 @@ abstract class Migration extends \yii\db\Migration
         if (is_bool($params)) {
             $includeAuditColumns = $params;
             $params = [];
-            Craft::$app->getDeprecator()->log('craft\\db\\Migration::upsert($includeAuditColumns)', 'The $includeAuditColumns argument on craft\\db\\Migration::upsert() has been moved to the 5th position');
+            Craft::$app->getDeprecator()->log('craft\\db\\Migration::upsert($includeAuditColumns)', 'The `$includeAuditColumns` argument on `craft\\db\\Migration::upsert()` has been moved to the 5th position');
         }
 
         $time = $this->beginCommand("upsert into $table");
@@ -272,7 +257,7 @@ abstract class Migration extends \yii\db\Migration
     }
 
     /**
-     * Creates and executes an UPDATE SQL statement.
+     * Creates and executes an `UPDATE` SQL statement.
      *
      * The method will properly escape the column names and bind the values to be updated.
      *
@@ -291,6 +276,21 @@ abstract class Migration extends \yii\db\Migration
             ->update($table, $columns, $condition, $params, $includeAuditColumns)
             ->execute();
         echo ' done (time: ' . sprintf('%.3f', microtime(true) - $time) . "s)\n";
+    }
+
+    /**
+     * Creates and executes a DELETE SQL statement that will only delete duplicate rows from a table.
+     *
+     * @param string $table The table where the data will be deleted from
+     * @param string[] $columns The column names that contain duplicate data
+     * @param string $pk The primary key column name
+     * @since 3.5.2
+     */
+    public function deleteDuplicates(string $table, array $columns, string $pk = 'id')
+    {
+        $time = $this->beginCommand("delete duplicates from $table");
+        $this->db->createCommand()->deleteDuplicates($table, $columns, $pk)->execute();
+        $this->endCommand($time);
     }
 
     /**
@@ -376,7 +376,7 @@ abstract class Migration extends \yii\db\Migration
     public function addForeignKey($name, $table, $columns, $refTable, $refColumns, $delete = null, $update = null)
     {
         if ($name === null) {
-            $name = $this->db->getForeignKeyName($table, $columns);
+            $name = $this->db->getForeignKeyName();
         }
 
         return parent::addForeignKey($name, $table, $columns, $refTable, $refColumns, $delete, $update);
@@ -394,7 +394,7 @@ abstract class Migration extends \yii\db\Migration
     public function createIndex($name, $table, $columns, $unique = false)
     {
         if ($name === null) {
-            $name = $this->db->getIndexName($table, $columns, $unique);
+            $name = $this->db->getIndexName();
         }
 
         return parent::createIndex($name, $table, $columns, $unique);
@@ -407,6 +407,7 @@ abstract class Migration extends \yii\db\Migration
      * @param string|array $condition The condition that will be put in the WHERE part. Please
      * refer to [[Query::where()]] on how to specify condition.
      * @param array $params The parameters to be bound to the command.
+     * @since 3.1.0
      */
     public function softDelete(string $table, $condition = '', array $params = [])
     {
@@ -425,6 +426,7 @@ abstract class Migration extends \yii\db\Migration
      * @param string|array $condition The condition that will be put in the WHERE part. Please
      * refer to [[Query::where()]] on how to specify condition.
      * @param array $params The parameters to be bound to the command.
+     * @since 3.1.0
      */
     public function restore(string $table, $condition = '', array $params = [])
     {
@@ -434,5 +436,15 @@ abstract class Migration extends \yii\db\Migration
             ->restore($table, $condition, $params)
             ->execute();
         echo ' done (time: ' . sprintf('%.3f', microtime(true) - $time) . "s)\n";
+    }
+
+    /**
+     * @param \Throwable|\Exception $e
+     */
+    private function _printException($e)
+    {
+        // Copied from \yii\db\Migration::printException(), only because it’s private
+        echo 'Exception: ' . $e->getMessage() . ' (' . $e->getFile() . ':' . $e->getLine() . ")\n";
+        echo $e->getTraceAsString() . "\n";
     }
 }

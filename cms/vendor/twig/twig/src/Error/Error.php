@@ -47,14 +47,8 @@ class Error extends \Exception
     /**
      * Constructor.
      *
-     * Set both the line number and the name to false to
-     * disable automatic guessing of the original template name
-     * and line number.
-     *
      * Set the line number to -1 to enable its automatic guessing.
      * Set the name to null to enable its automatic guessing.
-     *
-     * By default, automatic guessing is enabled.
      *
      * @param string             $message  The error message
      * @param int                $lineno   The template line where the error occurred
@@ -204,7 +198,7 @@ class Error extends \Exception
 
         $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS | DEBUG_BACKTRACE_PROVIDE_OBJECT);
         foreach ($backtrace as $trace) {
-            if (isset($trace['object']) && $trace['object'] instanceof Template && 'Twig_Template' !== \get_class($trace['object'])) {
+            if (isset($trace['object']) && $trace['object'] instanceof Template && 'Twig\Template' !== \get_class($trace['object'])) {
                 $currentClass = \get_class($trace['object']);
                 $isEmbedContainer = 0 === strpos($templateClass, $currentClass);
                 if (null === $this->name || ($this->name == $trace['object']->getTemplateName() && !$isEmbedContainer)) {

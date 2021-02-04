@@ -9,13 +9,13 @@ namespace craft\services;
 
 use Composer\CaBundle\CaBundle;
 use Composer\Config\JsonConfigSource;
+use Composer\DependencyResolver\Request;
 use Composer\Installer;
 use Composer\IO\IOInterface;
 use Composer\IO\NullIO;
 use Composer\Json\JsonFile;
 use Composer\Json\JsonManipulator;
 use Composer\Package\Locker;
-use Composer\Util\Platform;
 use Craft;
 use craft\composer\Factory;
 use craft\helpers\App;
@@ -31,22 +31,20 @@ use yii\base\Exception;
  * An instance of the Composer service is globally accessible in Craft via [[\craft\base\ApplicationTrait::getComposer()|`Craft::$app->composer`]].
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Composer extends Component
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var string
      */
-    public $composerRepoUrl = 'https://composer.craftcms.com/';
+    public $composerRepoUrl = 'https://composer.craftcms.com';
 
     /**
      * @var bool
+     * @deprecated in 3.6.0
      */
-    public $disablePackagist = true;
+    public $disablePackagist = false;
 
     /**
      * @var bool Whether to generate a new Composer class map, rather than preloading all of the classes in the current class map
@@ -55,16 +53,20 @@ class Composer extends Component
 
     /**
      * @var int The maximum number of composer.json and composer.lock backups to store in storage/composer-backups/
+     * @since 3.0.38
      */
     public $maxBackups = 50;
+
+    /**
+     * @var callable|null The previous error handler.
+     * @see run()
+     */
+    private $_errorHandler;
 
     /**
      * @var string[]|null
      */
     private $_composerClasses;
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * Returns the path to composer.json.
@@ -98,15 +100,28 @@ class Composer extends Component
     }
 
     /**
+     * Returns the Composer config defined by composer.json.
+     *
+     * @return array
+     * @since 3.5.15
+     */
+    public function getConfig(): array
+    {
+        try {
+            return Json::decode(file_get_contents($this->getJsonPath()));
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
      * Installs a given set of packages with Composer.
      *
      * @param array|null $requirements Package name/version pairs, or set to null to run the equivalent of `composer install`
      * @param IOInterface|null $io The IO object that Composer should be instantiated with
-     * @param array|bool $whitelist List of package names to whitelist, `true` if that should be determined
-     * dynamically, or `false` if no whitelist should be used.
      * @throws \Throwable if something goes wrong
      */
-    public function install(array $requirements = null, IOInterface $io = null, $whitelist = true)
+    public function install(array $requirements = null, IOInterface $io = null)
     {
         App::maxPowerCaptain();
 
@@ -147,30 +162,25 @@ class Composer extends Component
 
         // Create the installer
         $composer = $this->createComposer($io, $jsonPath);
-        $config = $composer->getConfig();
 
         $installer = Installer::create($io, $composer)
             ->setPreferDist()
-            ->setSkipSuggest()
-            ->setDumpAutoloader()
-            ->setRunScripts(false)
-            ->setOptimizeAutoloader(true)
-            ->setClassMapAuthoritative($config->get('classmap-authoritative'));
+            ->setRunScripts(false);
 
         if ($requirements !== null) {
-            $installer->setUpdate();
+            $installer
+                ->setUpdate(true)
+                ->setUpdateAllowTransitiveDependencies(Request::UPDATE_LISTED_WITH_TRANSITIVE_DEPS);
 
-            if (is_array($whitelist)) {
-                $installer->setUpdateWhitelist($whitelist);
-            } else if ($whitelist === true) {
-                $whitelist = Craft::$app->getApi()->getComposerWhitelist($requirements);
-                $installer->setUpdateWhitelist($whitelist);
+            // if no lock is present, we do not do a partial update as this is not supported by the Installer
+            if ($composer->getLocker()->isLocked()) {
+                $installer->setUpdateAllowList(array_keys($requirements));
             }
         }
 
         try {
             // Run the installer
-            $status = $installer->run();
+            $status = $this->run($installer);
         } catch (\Throwable $exception) {
             $status = 1;
         }
@@ -194,7 +204,7 @@ class Composer extends Component
             $contents = "<?php\n\nreturn [\n";
             sort($this->_composerClasses);
             foreach ($this->_composerClasses as $class) {
-                $contents .= "    '{$class}',\n";
+                $contents .= "    $class::class,\n";
             }
             $contents .= "];\n";
             FileHelper::writeToFile(dirname(__DIR__) . '/config/composer-classes.php', $contents);
@@ -252,19 +262,15 @@ class Composer extends Component
             }
 
             $composer = $this->createComposer($io, $jsonPath);
-            $composer->getDownloadManager()->setOutputProgress(false);
-            $config = $composer->getConfig();
+            $composer->getInstallationManager()->setOutputProgress(false);
 
             // Run the installer
             $installer = Installer::create($io, $composer)
-                ->setUpdate()
-                ->setUpdateWhitelist($packages)
-                ->setDumpAutoloader()
-                ->setRunScripts(false)
-                ->setOptimizeAutoloader(true)
-                ->setClassMapAuthoritative($config->get('classmap-authoritative'));
+                ->setUpdate(true)
+                ->setUpdateAllowList($packages)
+                ->setRunScripts(false);
 
-            $status = $installer->run();
+            $status = $this->run($installer);
         } catch (\Throwable $exception) {
             $status = 1;
         }
@@ -339,27 +345,17 @@ class Composer extends Component
         $this->_composerClasses[] = $className;
     }
 
-    // Protected Methods
-    // =========================================================================
-
     /**
      * Ensures that HOME/APPDATA or COMPOSER_HOME env vars have been set.
      */
     protected function _ensureHomeVar()
     {
-        if (getenv('COMPOSER_HOME') !== false) {
-            return;
+        // Must call getenv() instead of App::env() here because Composer\Factory doesn’t check $_SERVER
+        if (!getenv('COMPOSER_HOME')) {
+            $path = Craft::$app->getPath()->getRuntimePath() . DIRECTORY_SEPARATOR . 'composer';
+            FileHelper::createDirectory($path);
+            putenv("COMPOSER_HOME=$path");
         }
-
-        $alt = Platform::isWindows() ? 'APPDATA' : 'HOME';
-        if (getenv($alt) !== false) {
-            return;
-        }
-
-        // Just define one ourselves
-        $path = Craft::$app->getPath()->getRuntimePath() . DIRECTORY_SEPARATOR . 'composer';
-        FileHelper::createDirectory($path);
-        putenv("COMPOSER_HOME={$path}");
     }
 
     /**
@@ -446,11 +442,6 @@ class Composer extends Component
                 $config['repositories'][] = ['type' => 'composer', 'url' => $this->composerRepoUrl];
             }
 
-            // Disable Packagist if it's not already disabled
-            if ($this->disablePackagist && !$this->findDisablePackagist($config)) {
-                $config['repositories'][] = ['packagist.org' => false];
-            }
-
             // Are we relying on the bundled CA file?
             $bundledCaPath = CaBundle::getBundledCaBundlePath();
             if (
@@ -479,7 +470,7 @@ class Composer extends Component
         }
 
         foreach ($config['repositories'] as $repository) {
-            if (isset($repository['url']) && $repository['url'] === $this->composerRepoUrl) {
+            if (isset($repository['url']) && rtrim($repository['url'], '/') === $this->composerRepoUrl) {
                 return true;
             }
         }
@@ -517,9 +508,8 @@ class Composer extends Component
         $lockFile = pathinfo($jsonPath, PATHINFO_EXTENSION) === 'json'
             ? substr($jsonPath, 0, -4) . 'lock'
             : $jsonPath . '.lock';
-        $rm = $composer->getRepositoryManager();
         $im = $composer->getInstallationManager();
-        $locker = new Locker($io, new JsonFile($lockFile, null, $io), $rm, $im, file_get_contents($jsonPath));
+        $locker = new Locker($io, new JsonFile($lockFile, null, $io), $im, file_get_contents($jsonPath));
         $composer->setLocker($locker);
         return $composer;
     }
@@ -559,5 +549,41 @@ class Composer extends Component
                 ],
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
         }
+    }
+
+    /**
+     * @param Installer $installer
+     * @return int The response status
+     * @throws \Exception
+     * @since 3.5.0
+     */
+    protected function run(Installer $installer): int
+    {
+        $this->_errorHandler = set_error_handler([$this, 'handleError'], E_USER_DEPRECATED);
+        $status = $installer->run();
+        set_error_handler($this->_errorHandler);
+        return $status;
+    }
+
+    /**
+     * Handles an error triggered by Composer
+     *
+     * @param int $code the level of the error raised.
+     * @param string $message the error message.
+     * @param string $file the filename that the error was raised in.
+     * @param int $line the line number the error was raised at.
+     * @return bool whether the normal error handler continues.
+     * @since 3.5.0
+     */
+    public function handleError(int $code, string $message, string $file, int $line): bool
+    {
+        // Ignore deprecated errors
+        if ($code === E_USER_DEPRECATED) {
+            return true;
+        }
+        if ($this->_errorHandler !== null) {
+            return ($this->_errorHandler)($code, $message, $file, $line);
+        }
+        return false;
     }
 }

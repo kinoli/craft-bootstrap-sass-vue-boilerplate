@@ -12,12 +12,17 @@
 
 namespace Composer\Console;
 
+use Composer\IO\NullIO;
 use Composer\Util\Platform;
 use Composer\Util\Silencer;
 use Symfony\Component\Console\Application as BaseApplication;
+use Symfony\Component\Console\Exception\CommandNotFoundException;
+use Symfony\Component\Console\Helper\HelperSet;
+use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Seld\JsonLint\ParsingException;
 use Composer\Command;
 use Composer\Composer;
 use Composer\Factory;
@@ -25,6 +30,7 @@ use Composer\IO\IOInterface;
 use Composer\IO\ConsoleIO;
 use Composer\Json\JsonValidationException;
 use Composer\Util\ErrorHandler;
+use Composer\Util\HttpDownloader;
 use Composer\EventDispatcher\ScriptExecutionException;
 use Composer\Exception\NoSslException;
 
@@ -58,6 +64,11 @@ class Application extends BaseApplication
     private $hasPluginCommands = false;
     private $disablePluginsByDefault = false;
 
+    /**
+     * @var string Store the initial working directory at startup time
+     */
+    private $initialWorkingDirectory;
+
     public function __construct()
     {
         static $shutdownRegistered = false;
@@ -72,6 +83,13 @@ class Application extends BaseApplication
         }
 
         if (!$shutdownRegistered) {
+            if (function_exists('pcntl_async_signals') && function_exists('pcntl_signal')) {
+                pcntl_async_signals(true);
+                pcntl_signal(SIGINT, function ($sig) {
+                    exit(130);
+                });
+            }
+
             $shutdownRegistered = true;
 
             register_shutdown_function(function () {
@@ -85,7 +103,11 @@ class Application extends BaseApplication
             });
         }
 
-        parent::__construct('Composer', Composer::VERSION);
+        $this->io = new NullIO();
+
+        $this->initialWorkingDirectory = getcwd();
+
+        parent::__construct('Composer', Composer::getVersion());
     }
 
     /**
@@ -107,13 +129,26 @@ class Application extends BaseApplication
     {
         $this->disablePluginsByDefault = $input->hasParameterOption('--no-plugins');
 
-        $io = $this->io = new ConsoleIO($input, $output, $this->getHelperSet());
+        if (getenv('COMPOSER_NO_INTERACTION') || !Platform::isTty(defined('STDIN') ? STDIN : fopen('php://stdin', 'r'))) {
+            $input->setInteractive(false);
+        }
+
+        $io = $this->io = new ConsoleIO($input, $output, new HelperSet(array(
+            new QuestionHelper(),
+        )));
         ErrorHandler::register($io);
+
+        if ($input->hasParameterOption('--no-cache')) {
+            $io->writeError('Disabling cache usage', true, IOInterface::DEBUG);
+            $_SERVER['COMPOSER_CACHE_DIR'] = Platform::isWindows() ? 'nul' : '/dev/null';
+            putenv('COMPOSER_CACHE_DIR='.$_SERVER['COMPOSER_CACHE_DIR']);
+        }
 
         // switch working dir
         if ($newWorkDir = $this->getNewWorkingDir($input)) {
             $oldWorkingDir = getcwd();
             chdir($newWorkDir);
+            $this->initialWorkingDirectory = $newWorkDir;
             $io->writeError('Changed CWD to ' . getcwd(), true, IOInterface::DEBUG);
         }
 
@@ -122,19 +157,22 @@ class Application extends BaseApplication
         if ($name = $this->getCommandName($input)) {
             try {
                 $commandName = $this->find($name)->getName();
+            } catch (CommandNotFoundException $e) {
+                // we'll check command validity again later after plugins are loaded
+                $commandName = false;
             } catch (\InvalidArgumentException $e) {
             }
         }
 
         // prompt user for dir change if no composer.json is present in current dir
-        if ($io->isInteractive() && !$newWorkDir && !in_array($commandName, array('', 'list', 'init', 'about', 'help', 'diagnose', 'self-update', 'global', 'create-project'), true) && !file_exists(Factory::getComposerFile())) {
+        if ($io->isInteractive() && !$newWorkDir && !in_array($commandName, array('', 'list', 'init', 'about', 'help', 'diagnose', 'self-update', 'global', 'create-project', 'outdated'), true) && !file_exists(Factory::getComposerFile())) {
             $dir = dirname(getcwd());
             $home = realpath(getenv('HOME') ?: getenv('USERPROFILE') ?: '/');
 
             // abort when we reach the home dir or top of the filesystem
             while (dirname($dir) !== $dir && $dir !== $home) {
                 if (file_exists($dir.'/'.Factory::getComposerFile())) {
-                    if ($io->askConfirmation('<info>No composer.json in current directory, do you want to use the one at '.$dir.'?</info> [<comment>Y,n</comment>]? ', true)) {
+                    if ($io->askConfirmation('<info>No composer.json in current directory, do you want to use the one at '.$dir.'?</info> [<comment>Y,n</comment>]? ')) {
                         $oldWorkingDir = getcwd();
                         chdir($dir);
                     }
@@ -155,6 +193,20 @@ class Application extends BaseApplication
                 }
             } catch (NoSslException $e) {
                 // suppress these as they are not relevant at this point
+            } catch (ParsingException $e) {
+                $details = $e->getDetails();
+
+                $file = realpath(Factory::getComposerFile());
+
+                $line = null;
+                if ($details && isset($details['line'])) {
+                    $line = $details['line'];
+                }
+
+                $ghe = new GithubActionError($this->io);
+                $ghe->emit($e->getMessage(), $file, $line);
+
+                throw $e;
             }
 
             $this->hasPluginCommands = true;
@@ -174,7 +226,7 @@ class Application extends BaseApplication
         if (!$isProxyCommand) {
             $io->writeError(sprintf(
                 'Running %s (%s) with %s on %s',
-                Composer::VERSION,
+                Composer::getVersion(),
                 Composer::RELEASE_DATE,
                 defined('HHVM_VERSION') ? 'HHVM '.HHVM_VERSION : 'PHP '.PHP_VERSION,
                 function_exists('php_uname') ? php_uname('s') . ' / ' . php_uname('r') : 'Unknown OS'
@@ -185,21 +237,28 @@ class Application extends BaseApplication
             }
 
             if (extension_loaded('xdebug') && !getenv('COMPOSER_DISABLE_XDEBUG_WARN')) {
-                $io->writeError('<warning>You are running composer with xdebug enabled. This has a major impact on runtime performance. See https://getcomposer.org/xdebug</warning>');
+                $io->writeError('<warning>You are running composer with Xdebug enabled. This has a major impact on runtime performance. See https://getcomposer.org/xdebug</warning>');
             }
 
             if (defined('COMPOSER_DEV_WARNING_TIME') && $commandName !== 'self-update' && $commandName !== 'selfupdate' && time() > COMPOSER_DEV_WARNING_TIME) {
                 $io->writeError(sprintf('<warning>Warning: This development build of composer is over 60 days old. It is recommended to update it by running "%s self-update" to get the latest version.</warning>', $_SERVER['PHP_SELF']));
             }
 
-            if (getenv('COMPOSER_NO_INTERACTION')) {
-                $input->setInteractive(false);
-            }
-
-            if (!Platform::isWindows() && function_exists('exec') && !getenv('COMPOSER_ALLOW_SUPERUSER')) {
+            if (
+                !Platform::isWindows()
+                && function_exists('exec')
+                && !getenv('COMPOSER_ALLOW_SUPERUSER')
+                && (ini_get('open_basedir') || !file_exists('/.dockerenv'))
+            ) {
                 if (function_exists('posix_getuid') && posix_getuid() === 0) {
                     if ($commandName !== 'self-update' && $commandName !== 'selfupdate') {
                         $io->writeError('<warning>Do not run Composer as root/super user! See https://getcomposer.org/root for details</warning>');
+
+                        if ($io->isInteractive()) {
+                            if (!$io->askConfirmation('<info>Continue as root/super user</info> [<comment>yes</comment>]? ')) {
+                                return 1;
+                            }
+                        }
                     }
                     if ($uid = (int) getenv('SUDO_UID')) {
                         // Silently clobber any sudo credentials on the invoking user to avoid privilege escalations later on
@@ -255,17 +314,22 @@ class Application extends BaseApplication
             }
 
             if (isset($startTime)) {
-                $io->writeError('<info>Memory usage: '.round(memory_get_usage() / 1024 / 1024, 2).'MB (peak: '.round(memory_get_peak_usage() / 1024 / 1024, 2).'MB), time: '.round(microtime(true) - $startTime, 2).'s');
+                $io->writeError('<info>Memory usage: '.round(memory_get_usage() / 1024 / 1024, 2).'MiB (peak: '.round(memory_get_peak_usage() / 1024 / 1024, 2).'MiB), time: '.round(microtime(true) - $startTime, 2).'s');
             }
 
             restore_error_handler();
 
             return $result;
         } catch (ScriptExecutionException $e) {
-            return $e->getCode();
+            return (int) $e->getCode();
         } catch (\Exception $e) {
+            $ghe = new GithubActionError($this->io);
+            $ghe->emit($e->getMessage());
+
             $this->hintCommonErrors($e);
+
             restore_error_handler();
+
             throw $e;
         }
     }
@@ -319,6 +383,12 @@ class Application extends BaseApplication
             $io->writeError('<error>The following exception is caused by a lack of memory or swap, or not having swap configured</error>', true, IOInterface::QUIET);
             $io->writeError('<error>Check https://getcomposer.org/doc/articles/troubleshooting.md#proc-open-fork-failed-errors for details</error>', true, IOInterface::QUIET);
         }
+
+        if ($hints = HttpDownloader::getExceptionHints($exception)) {
+            foreach ($hints as $hint) {
+                $io->writeError($hint, true, IOInterface::QUIET);
+            }
+        }
     }
 
     /**
@@ -357,6 +427,9 @@ class Application extends BaseApplication
     public function resetComposer()
     {
         $this->composer = null;
+        if ($this->getIO() && method_exists($this->getIO(), 'resetAuthentications')) {
+            $this->getIO()->resetAuthentications();
+        }
     }
 
     /**
@@ -404,9 +477,10 @@ class Application extends BaseApplication
             new Command\ExecCommand(),
             new Command\OutdatedCommand(),
             new Command\CheckPlatformReqsCommand(),
+            new Command\FundCommand(),
         ));
 
-        if ('phar:' === substr(__FILE__, 0, 5)) {
+        if (strpos(__FILE__, 'phar:') === 0) {
             $commands[] = new Command\SelfUpdateCommand();
         }
 
@@ -418,7 +492,7 @@ class Application extends BaseApplication
      */
     public function getLongVersion()
     {
-        if (Composer::BRANCH_ALIAS_VERSION) {
+        if (Composer::BRANCH_ALIAS_VERSION && Composer::BRANCH_ALIAS_VERSION !== '@package_branch_alias_version'.'@') {
             return sprintf(
                 '<info>%s</info> version <comment>%s (%s)</comment> %s',
                 $this->getName(),
@@ -440,6 +514,7 @@ class Application extends BaseApplication
         $definition->addOption(new InputOption('--profile', null, InputOption::VALUE_NONE, 'Display timing and memory usage information'));
         $definition->addOption(new InputOption('--no-plugins', null, InputOption::VALUE_NONE, 'Whether to disable plugins.'));
         $definition->addOption(new InputOption('--working-dir', '-d', InputOption::VALUE_REQUIRED, 'If specified, use the given directory as working directory.'));
+        $definition->addOption(new InputOption('--no-cache', null, InputOption::VALUE_NONE, 'Prevent use of the cache'));
 
         return $definition;
     }
@@ -450,7 +525,7 @@ class Application extends BaseApplication
 
         $composer = $this->getComposer(false, false);
         if (null === $composer) {
-            $composer = Factory::createGlobal($this->io, false);
+            $composer = Factory::createGlobal($this->io);
         }
 
         if (null !== $composer) {
@@ -470,5 +545,15 @@ class Application extends BaseApplication
         }
 
         return $commands;
+    }
+
+    /**
+     * Get the working directory at startup time
+     *
+     * @return string
+     */
+    public function getInitialWorkingDirectory()
+    {
+        return $this->initialWorkingDirectory;
     }
 }
