@@ -4,7 +4,7 @@ As I discover new technologies, I find my boilerplates evolving and getting bett
 
 ## How it works
 
-This boilerplate is setup using Webpack to devlop on a local server (I use Mamp, but you can use whatever you want). the *dev* script will allow you to hot reload your changes, it will output files to the */dev* directory, which is where your local server should point its root to.
+This boilerplate is setup using Webpack to devlop on a local server (You can use Nitro/Docker or even Mamp, use whatever you want). the *dev* script will allow you to hot reload your changes, it will output files to the */dev* directory, which is where your local server should point its root to.
 
 The *build* script will output all production files to the */public_html* directory. Included is a VSCode sftp configuration that is setup to automagically ftp any updates to that */build* directory into your server. You will need to configure that. Read below for full instructions.
 
@@ -73,29 +73,24 @@ If you’re given a choice, we recommend the following database settings in most
 
 ## 4. Set up the Web Server
 Here are some suggested local server environments you can use.
-### DOCKER
-You need to have Docker installed if you want to run through it. Edit docker-compose.yml as you see fit then run this to fire it up.
+### Nitro/Docker
+Craft has created this super simple tool to run a local dev server for Craft within Docker. It will hardwire your local environment specifically for Craft and in my experience removes all the headaches of setting up and configuring a Docker environment on your own. Use it.
+
+You need to have Docker installed if you want to run through it.
 ```
-docker-compose up -d
-```
+// install Nitro globally with Homebrew
+brew tap craftcms/nitro
+brew install nitro
 
-### MAMP
-Create a new web server to host your Craft project. Its document root should point to the `dev/` folder.
-
-If you’re not using MAMP, you will probably need to update your `hosts` file, so your computer knows to route requests to your chosen host name to the local computer.
-
-- **macOS/Linux/Unix:** `/etc/hosts`
-- **Windows:** `\Windows\System32\drivers\etc\hosts`
-
-## 5. Setup Craft
-You need to duplicate the Craft .env file. This will do it for you
-```
-cp cms/.env.example cms/.env
+// initialize nitro and add the containers. Make sure you point to the dev directory for your server root.
+nitro init
+nitro add
 ```
 
-Now run the craft setup script.
+## 5. install Craft
+Now run the craft install script.
 ```
-cms/craft setup
+nitro craft install
 ```
 
 Now, run the web server so you can load the Craft installation. This will copy the necessary files into your `/dev` directory.
