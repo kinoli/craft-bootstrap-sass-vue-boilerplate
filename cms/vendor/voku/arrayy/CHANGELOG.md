@@ -1,5 +1,13 @@
 # Changelog
 
+### 7.8.7 (20201-01-30)
+
+- optimize Json Mapper with nested Arrayy elements
+
+### 7.8.6 (2020-12-06)
+
+- add more support for Generics + phpstan checks
+
 ### 7.8.5 (2020-11-02)
 
 - use more Generators v3.1

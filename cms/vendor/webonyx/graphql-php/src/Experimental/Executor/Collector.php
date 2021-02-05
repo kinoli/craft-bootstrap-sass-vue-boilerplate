@@ -244,7 +244,7 @@ class Collector
                         continue;
                     }
                 } elseif ($conditionType instanceof AbstractType) {
-                    if (! $this->schema->isSubType($conditionType, $runtimeType)) {
+                    if (! $this->schema->isPossibleType($conditionType, $runtimeType)) {
                         continue;
                     }
                 }
@@ -269,7 +269,7 @@ class Collector
                             continue;
                         }
                     } elseif ($conditionType instanceof AbstractType) {
-                        if (! $this->schema->isSubType($conditionType, $runtimeType)) {
+                        if (! $this->schema->isPossibleType($conditionType, $runtimeType)) {
                             continue;
                         }
                     }

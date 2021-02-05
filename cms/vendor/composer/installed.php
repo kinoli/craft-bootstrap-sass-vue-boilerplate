@@ -1,16 +1,25 @@
 <?php return array (
   'root' => 
   array (
-    'pretty_version' => '1.1.0',
-    'version' => '1.1.0.0',
+    'pretty_version' => 'dev-master',
+    'version' => 'dev-master',
     'aliases' => 
     array (
     ),
-    'reference' => NULL,
-    'name' => 'craftcms/craft',
+    'reference' => '000be4630432e74b49939221fd66c10ffab5e68b',
+    'name' => '__root__',
   ),
   'versions' => 
   array (
+    '__root__' => 
+    array (
+      'pretty_version' => 'dev-master',
+      'version' => 'dev-master',
+      'aliases' => 
+      array (
+      ),
+      'reference' => '000be4630432e74b49939221fd66c10ffab5e68b',
+    ),
     'bower-asset/inputmask' => 
     array (
       'provided' => 
@@ -95,21 +104,12 @@
     ),
     'craftcms/cms' => 
     array (
-      'pretty_version' => '3.6.0.1',
-      'version' => '3.6.0.1',
+      'pretty_version' => '3.6.3',
+      'version' => '3.6.3.0',
       'aliases' => 
       array (
       ),
-      'reference' => 'dc551778b21f44877241306b458f55d7c64ec08f',
-    ),
-    'craftcms/craft' => 
-    array (
-      'pretty_version' => '1.1.0',
-      'version' => '1.1.0.0',
-      'aliases' => 
-      array (
-      ),
-      'reference' => NULL,
+      'reference' => '9f30481ca26a3c951cd5b295559f80cf8d3ed0f4',
     ),
     'craftcms/oauth2-craftid' => 
     array (
@@ -492,12 +492,12 @@
     ),
     'symfony/console' => 
     array (
-      'pretty_version' => 'v5.2.1',
-      'version' => '5.2.1.0',
+      'pretty_version' => 'v5.2.3',
+      'version' => '5.2.3.0',
       'aliases' => 
       array (
       ),
-      'reference' => '47c02526c532fb381374dab26df05e7313978976',
+      'reference' => '89d4b176d12a2946a1ae4e34906a025b7b6b135a',
     ),
     'symfony/deprecation-contracts' => 
     array (
@@ -510,21 +510,21 @@
     ),
     'symfony/filesystem' => 
     array (
-      'pretty_version' => 'v5.2.1',
-      'version' => '5.2.1.0',
+      'pretty_version' => 'v5.2.3',
+      'version' => '5.2.3.0',
       'aliases' => 
       array (
       ),
-      'reference' => 'fa8f8cab6b65e2d99a118e082935344c5ba8c60d',
+      'reference' => '262d033b57c73e8b59cd6e68a45c528318b15038',
     ),
     'symfony/finder' => 
     array (
-      'pretty_version' => 'v5.2.1',
-      'version' => '5.2.1.0',
+      'pretty_version' => 'v5.2.3',
+      'version' => '5.2.3.0',
       'aliases' => 
       array (
       ),
-      'reference' => '0b9231a5922fd7287ba5b411893c0ecd2733e5ba',
+      'reference' => '4adc8d172d602008c204c2e16956f99257248e03',
     ),
     'symfony/polyfill-ctype' => 
     array (
@@ -609,12 +609,12 @@
     ),
     'symfony/process' => 
     array (
-      'pretty_version' => 'v5.2.1',
-      'version' => '5.2.1.0',
+      'pretty_version' => 'v5.2.3',
+      'version' => '5.2.3.0',
       'aliases' => 
       array (
       ),
-      'reference' => 'bd8815b8b6705298beaa384f04fabd459c10bedd',
+      'reference' => '313a38f09c77fbcdc1d223e57d368cea76a2fd2f',
     ),
     'symfony/service-contracts' => 
     array (
@@ -627,21 +627,21 @@
     ),
     'symfony/string' => 
     array (
-      'pretty_version' => 'v5.2.1',
-      'version' => '5.2.1.0',
+      'pretty_version' => 'v5.2.3',
+      'version' => '5.2.3.0',
       'aliases' => 
       array (
       ),
-      'reference' => '5bd67751d2e3f7d6f770c9154b8fbcb2aa05f7ed',
+      'reference' => 'c95468897f408dd0aca2ff582074423dd0455122',
     ),
     'symfony/yaml' => 
     array (
-      'pretty_version' => 'v5.2.1',
-      'version' => '5.2.1.0',
+      'pretty_version' => 'v5.2.3',
+      'version' => '5.2.3.0',
       'aliases' => 
       array (
       ),
-      'reference' => '290ea5e03b8cf9b42c783163123f54441fb06939',
+      'reference' => '338cddc6d74929f6adf19ca5682ac4b8e109cdb0',
     ),
     'true/punycode' => 
     array (
@@ -681,21 +681,21 @@
     ),
     'voku/arrayy' => 
     array (
-      'pretty_version' => '7.8.5',
-      'version' => '7.8.5.0',
+      'pretty_version' => '7.8.7',
+      'version' => '7.8.7.0',
       'aliases' => 
       array (
       ),
-      'reference' => 'eacd7fa54f8584ffe919a12d11093b0516081ecf',
+      'reference' => 'f1e733a9ff28976895f2940d644e518dbe0852f9',
     ),
     'voku/email-check' => 
     array (
-      'pretty_version' => '3.0.2',
-      'version' => '3.0.2.0',
+      'pretty_version' => '3.1.0',
+      'version' => '3.1.0.0',
       'aliases' => 
       array (
       ),
-      'reference' => 'f91fc9da57fbb29c4ded5a1fc1238d4b988758dd',
+      'reference' => '6ea842920bbef6758b8c1e619fd1710e7a1a2cac',
     ),
     'voku/portable-ascii' => 
     array (
@@ -753,12 +753,12 @@
     ),
     'webonyx/graphql-php' => 
     array (
-      'pretty_version' => 'v14.5.0',
-      'version' => '14.5.0.0',
+      'pretty_version' => 'v14.4.1',
+      'version' => '14.4.1.0',
       'aliases' => 
       array (
       ),
-      'reference' => '115a20e419439a27092788cdf36f1ac5f0fa429b',
+      'reference' => '769a47401f8cbc5f357ea4d05e0191e35a011b0f',
     ),
     'yii2tech/ar-softdelete' => 
     array (

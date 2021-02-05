@@ -11,7 +11,6 @@ namespace GraphQL\Utils;
 use GraphQL\Type\Definition\Directive;
 use GraphQL\Type\Definition\EnumType;
 use GraphQL\Type\Definition\FieldArgument;
-use GraphQL\Type\Definition\ImplementingType;
 use GraphQL\Type\Definition\InputObjectType;
 use GraphQL\Type\Definition\InterfaceType;
 use GraphQL\Type\Definition\ListOfType;
@@ -42,21 +41,17 @@ class BreakingChangesFinder
     public const BREAKING_CHANGE_ARG_CHANGED_KIND              = 'ARG_CHANGED_KIND';
     public const BREAKING_CHANGE_REQUIRED_ARG_ADDED            = 'REQUIRED_ARG_ADDED';
     public const BREAKING_CHANGE_REQUIRED_INPUT_FIELD_ADDED    = 'REQUIRED_INPUT_FIELD_ADDED';
-    public const BREAKING_CHANGE_IMPLEMENTED_INTERFACE_REMOVED = 'IMPLEMENTED_INTERFACE_REMOVED';
+    public const BREAKING_CHANGE_INTERFACE_REMOVED_FROM_OBJECT = 'INTERFACE_REMOVED_FROM_OBJECT';
     public const BREAKING_CHANGE_DIRECTIVE_REMOVED             = 'DIRECTIVE_REMOVED';
     public const BREAKING_CHANGE_DIRECTIVE_ARG_REMOVED         = 'DIRECTIVE_ARG_REMOVED';
     public const BREAKING_CHANGE_DIRECTIVE_LOCATION_REMOVED    = 'DIRECTIVE_LOCATION_REMOVED';
     public const BREAKING_CHANGE_REQUIRED_DIRECTIVE_ARG_ADDED  = 'REQUIRED_DIRECTIVE_ARG_ADDED';
     public const DANGEROUS_CHANGE_ARG_DEFAULT_VALUE_CHANGED    = 'ARG_DEFAULT_VALUE_CHANGE';
     public const DANGEROUS_CHANGE_VALUE_ADDED_TO_ENUM          = 'VALUE_ADDED_TO_ENUM';
-    public const DANGEROUS_CHANGE_IMPLEMENTED_INTERFACE_ADDED  = 'IMPLEMENTED_INTERFACE_ADDED';
+    public const DANGEROUS_CHANGE_INTERFACE_ADDED_TO_OBJECT    = 'INTERFACE_ADDED_TO_OBJECT';
     public const DANGEROUS_CHANGE_TYPE_ADDED_TO_UNION          = 'TYPE_ADDED_TO_UNION';
     public const DANGEROUS_CHANGE_OPTIONAL_INPUT_FIELD_ADDED   = 'OPTIONAL_INPUT_FIELD_ADDED';
     public const DANGEROUS_CHANGE_OPTIONAL_ARG_ADDED           = 'OPTIONAL_ARG_ADDED';
-    /** @deprecated use BREAKING_CHANGE_IMPLEMENTED_INTERFACE_REMOVED instead, will be removed in v15.0.0. */
-    public const BREAKING_CHANGE_INTERFACE_REMOVED_FROM_OBJECT = 'IMPLEMENTED_INTERFACE_REMOVED';
-    /** @deprecated use DANGEROUS_CHANGE_IMPLEMENTED_INTERFACE_ADDED instead, will be removed in v15.0.0. */
-    public const DANGEROUS_CHANGE_INTERFACE_ADDED_TO_OBJECT = 'IMPLEMENTED_INTERFACE_ADDED';
 
     /**
      * Given two schemas, returns an Array containing descriptions of all the types
@@ -595,7 +590,7 @@ class BreakingChangesFinder
 
         foreach ($oldTypeMap as $typeName => $oldType) {
             $newType = $newTypeMap[$typeName] ?? null;
-            if (! ($oldType instanceof ImplementingType) || ! ($newType instanceof ImplementingType)) {
+            if (! ($oldType instanceof ObjectType) || ! ($newType instanceof ObjectType)) {
                 continue;
             }
 
@@ -613,7 +608,7 @@ class BreakingChangesFinder
                 }
 
                 $breakingChanges[] = [
-                    'type'        => self::BREAKING_CHANGE_IMPLEMENTED_INTERFACE_REMOVED,
+                    'type'        => self::BREAKING_CHANGE_INTERFACE_REMOVED_FROM_OBJECT,
                     'description' => sprintf('%s no longer implements interface %s.', $typeName, $oldInterface->name),
                 ];
             }
@@ -862,8 +857,7 @@ class BreakingChangesFinder
 
         foreach ($newTypeMap as $typeName => $newType) {
             $oldType = $oldTypeMap[$typeName] ?? null;
-            if (! ($oldType instanceof ObjectType || $oldType instanceof InterfaceType)
-                || ! ($newType instanceof ObjectType || $newType instanceof InterfaceType)) {
+            if (! ($oldType instanceof ObjectType) || ! ($newType instanceof ObjectType)) {
                 continue;
             }
 
@@ -882,7 +876,7 @@ class BreakingChangesFinder
                 }
 
                 $interfacesAddedToObjectTypes[] = [
-                    'type'        => self::DANGEROUS_CHANGE_IMPLEMENTED_INTERFACE_ADDED,
+                    'type'        => self::DANGEROUS_CHANGE_INTERFACE_ADDED_TO_OBJECT,
                     'description' => sprintf(
                         '%s added to interfaces implemented by %s.',
                         $newInterface->name,

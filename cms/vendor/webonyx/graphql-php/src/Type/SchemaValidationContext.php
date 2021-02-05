@@ -27,7 +27,6 @@ use GraphQL\Type\Definition\Directive;
 use GraphQL\Type\Definition\EnumType;
 use GraphQL\Type\Definition\EnumValueDefinition;
 use GraphQL\Type\Definition\FieldDefinition;
-use GraphQL\Type\Definition\ImplementingType;
 use GraphQL\Type\Definition\InputObjectField;
 use GraphQL\Type\Definition\InputObjectType;
 use GraphQL\Type\Definition\InterfaceType;
@@ -44,7 +43,6 @@ use function array_filter;
 use function array_key_exists;
 use function array_merge;
 use function count;
-use function in_array;
 use function is_array;
 use function is_object;
 use function sprintf;
@@ -308,7 +306,7 @@ class SchemaValidationContext
                 $this->validateFields($type);
 
                 // Ensure objects implement the interfaces they claim to.
-                $this->validateInterfaces($type);
+                $this->validateObjectInterfaces($type);
 
                 // Ensure directives are valid
                 $this->validateDirectivesAtLocation(
@@ -318,9 +316,6 @@ class SchemaValidationContext
             } elseif ($type instanceof InterfaceType) {
                 // Ensure fields are valid.
                 $this->validateFields($type);
-
-                // Ensure interfaces implement the interfaces they claim to.
-                $this->validateInterfaces($type);
 
                 // Ensure directives are valid
                 $this->validateDirectivesAtLocation(
@@ -542,8 +537,10 @@ class SchemaValidationContext
 
     /**
      * @param Schema|ObjectType|InterfaceType|UnionType|EnumType|Directive $obj
+     *
+     * @return NodeList
      */
-    private function getAllSubNodes($obj, callable $getter) : NodeList
+    private function getAllSubNodes($obj, callable $getter)
     {
         $result = new NodeList([]);
         foreach ($this->getAllNodes($obj) as $astNode) {
@@ -657,47 +654,30 @@ class SchemaValidationContext
         return $nodes[0] ?? null;
     }
 
-    /**
-     * @param ObjectType|InterfaceType $type
-     */
-    private function validateInterfaces(ImplementingType $type) : void
+    private function validateObjectInterfaces(ObjectType $object)
     {
-        $ifaceTypeNames = [];
-        foreach ($type->getInterfaces() as $iface) {
+        $implementedTypeNames = [];
+        foreach ($object->getInterfaces() as $iface) {
             if (! $iface instanceof InterfaceType) {
                 $this->reportError(
                     sprintf(
                         'Type %s must only implement Interface types, it cannot implement %s.',
-                        $type->name,
+                        $object->name,
                         Utils::printSafe($iface)
                     ),
-                    $this->getImplementsInterfaceNode($type, $iface)
+                    $this->getImplementsInterfaceNode($object, $iface)
                 );
                 continue;
             }
-
-            if ($type === $iface) {
+            if (isset($implementedTypeNames[$iface->name])) {
                 $this->reportError(
-                    sprintf(
-                        'Type %s cannot implement itself because it would create a circular reference.',
-                        $type->name
-                    ),
-                    $this->getImplementsInterfaceNode($type, $iface)
+                    sprintf('Type %s can only implement %s once.', $object->name, $iface->name),
+                    $this->getAllImplementsInterfaceNodes($object, $iface)
                 );
                 continue;
             }
-
-            if (isset($ifaceTypeNames[$iface->name])) {
-                $this->reportError(
-                    sprintf('Type %s can only implement %s once.', $type->name, $iface->name),
-                    $this->getAllImplementsInterfaceNodes($type, $iface)
-                );
-                continue;
-            }
-            $ifaceTypeNames[$iface->name] = true;
-
-            $this->validateTypeImplementsAncestors($type, $iface);
-            $this->validateTypeImplementsInterface($type, $iface);
+            $implementedTypeNames[$iface->name] = true;
+            $this->validateObjectImplementsInterface($object, $iface);
         }
     }
 
@@ -714,68 +694,69 @@ class SchemaValidationContext
     }
 
     /**
-     * @param ObjectType|InterfaceType $type
+     * @param InterfaceType $iface
+     *
+     * @return NamedTypeNode|null
      */
-    private function getImplementsInterfaceNode(ImplementingType $type, Type $shouldBeInterface) : ?NamedTypeNode
+    private function getImplementsInterfaceNode(ObjectType $type, $iface)
     {
-        $nodes = $this->getAllImplementsInterfaceNodes($type, $shouldBeInterface);
+        $nodes = $this->getAllImplementsInterfaceNodes($type, $iface);
 
         return $nodes[0] ?? null;
     }
 
     /**
-     * @param ObjectType|InterfaceType $type
+     * @param InterfaceType $iface
      *
-     * @return array<int, NamedTypeNode>
+     * @return NamedTypeNode[]
      */
-    private function getAllImplementsInterfaceNodes(ImplementingType $type, Type $shouldBeInterface) : array
+    private function getAllImplementsInterfaceNodes(ObjectType $type, $iface)
     {
-        $subNodes = $this->getAllSubNodes($type, static function (Node $typeNode) : NodeList {
-            /** @var ObjectTypeDefinitionNode|ObjectTypeExtensionNode|InterfaceTypeDefinitionNode|InterfaceTypeExtensionNode $typeNode */
+        $subNodes = $this->getAllSubNodes($type, static function ($typeNode) {
             return $typeNode->interfaces;
         });
 
-        return Utils::filter($subNodes, static function (NamedTypeNode $ifaceNode) use ($shouldBeInterface) : bool {
-            return $ifaceNode->name->value === $shouldBeInterface->name;
+        return Utils::filter($subNodes, static function ($ifaceNode) use ($iface) : bool {
+            return $ifaceNode->name->value === $iface->name;
         });
     }
 
     /**
-     * @param ObjectType|InterfaceType $type
+     * @param InterfaceType $iface
      */
-    private function validateTypeImplementsInterface(ImplementingType $type, InterfaceType $iface)
+    private function validateObjectImplementsInterface(ObjectType $object, $iface)
     {
-        $typeFieldMap  = $type->getFields();
-        $ifaceFieldMap = $iface->getFields();
+        $objectFieldMap = $object->getFields();
+        $ifaceFieldMap  = $iface->getFields();
 
         // Assert each interface field is implemented.
         foreach ($ifaceFieldMap as $fieldName => $ifaceField) {
-            $typeField = array_key_exists($fieldName, $typeFieldMap)
-                ? $typeFieldMap[$fieldName]
+            $objectField = array_key_exists($fieldName, $objectFieldMap)
+                ? $objectFieldMap[$fieldName]
                 : null;
 
-            // Assert interface field exists on type.
-            if (! $typeField) {
+            // Assert interface field exists on object.
+            if (! $objectField) {
                 $this->reportError(
                     sprintf(
                         'Interface field %s.%s expected but %s does not provide it.',
                         $iface->name,
                         $fieldName,
-                        $type->name
+                        $object->name
                     ),
                     array_merge(
                         [$this->getFieldNode($iface, $fieldName)],
-                        $this->getAllNodes($type)
+                        $this->getAllNodes($object)
                     )
                 );
                 continue;
             }
 
-            // Assert interface field type is satisfied by type field type, by being
+            // Assert interface field type is satisfied by object field type, by being
             // a valid subtype. (covariant)
             if (! TypeComparators::isTypeSubTypeOf(
                 $this->schema,
-                $typeField->getType(),
+                $objectField->getType(),
                 $ifaceField->getType()
             )
             ) {
@@ -785,52 +766,52 @@ class SchemaValidationContext
                         $iface->name,
                         $fieldName,
                         $ifaceField->getType(),
-                        $type->name,
+                        $object->name,
                         $fieldName,
-                        Utils::printSafe($typeField->getType())
+                        Utils::printSafe($objectField->getType())
                     ),
                     [
                         $this->getFieldTypeNode($iface, $fieldName),
-                        $this->getFieldTypeNode($type, $fieldName),
+                        $this->getFieldTypeNode($object, $fieldName),
                     ]
                 );
             }
 
             // Assert each interface field arg is implemented.
             foreach ($ifaceField->args as $ifaceArg) {
-                $argName = $ifaceArg->name;
-                $typeArg = null;
+                $argName   = $ifaceArg->name;
+                $objectArg = null;
 
-                foreach ($typeField->args as $arg) {
+                foreach ($objectField->args as $arg) {
                     if ($arg->name === $argName) {
-                        $typeArg = $arg;
+                        $objectArg = $arg;
                         break;
                     }
                 }
 
-                // Assert interface field arg exists on type field.
-                if (! $typeArg) {
+                // Assert interface field arg exists on object field.
+                if (! $objectArg) {
                     $this->reportError(
                         sprintf(
                             'Interface field argument %s.%s(%s:) expected but %s.%s does not provide it.',
                             $iface->name,
                             $fieldName,
                             $argName,
-                            $type->name,
+                            $object->name,
                             $fieldName
                         ),
                         [
                             $this->getFieldArgNode($iface, $fieldName, $argName),
-                            $this->getFieldNode($type, $fieldName),
+                            $this->getFieldNode($object, $fieldName),
                         ]
                     );
                     continue;
                 }
 
-                // Assert interface field arg type matches type field arg type.
+                // Assert interface field arg type matches object field arg type.
                 // (invariant)
                 // TODO: change to contravariant?
-                if (! TypeComparators::isEqualType($ifaceArg->getType(), $typeArg->getType())) {
+                if (! TypeComparators::isEqualType($ifaceArg->getType(), $objectArg->getType())) {
                     $this->reportError(
                         sprintf(
                             'Interface field argument %s.%s(%s:) expects type %s but %s.%s(%s:) is type %s.',
@@ -838,14 +819,14 @@ class SchemaValidationContext
                             $fieldName,
                             $argName,
                             Utils::printSafe($ifaceArg->getType()),
-                            $type->name,
+                            $object->name,
                             $fieldName,
                             $argName,
-                            Utils::printSafe($typeArg->getType())
+                            Utils::printSafe($objectArg->getType())
                         ),
                         [
                             $this->getFieldArgTypeNode($iface, $fieldName, $argName),
-                            $this->getFieldArgTypeNode($type, $fieldName, $argName),
+                            $this->getFieldArgTypeNode($object, $fieldName, $argName),
                         ]
                     );
                 }
@@ -853,8 +834,8 @@ class SchemaValidationContext
             }
 
             // Assert additional arguments must not be required.
-            foreach ($typeField->args as $typeArg) {
-                $argName  = $typeArg->name;
+            foreach ($objectField->args as $objectArg) {
+                $argName  = $objectArg->name;
                 $ifaceArg = null;
 
                 foreach ($ifaceField->args as $arg) {
@@ -864,58 +845,25 @@ class SchemaValidationContext
                     }
                 }
 
-                if ($ifaceArg || ! $typeArg->isRequired()) {
+                if ($ifaceArg || ! $objectArg->isRequired()) {
                     continue;
                 }
 
                 $this->reportError(
                     sprintf(
                         'Object field %s.%s includes required argument %s that is missing from the Interface field %s.%s.',
-                        $type->name,
+                        $object->name,
                         $fieldName,
                         $argName,
                         $iface->name,
                         $fieldName
                     ),
                     [
-                        $this->getFieldArgNode($type, $fieldName, $argName),
+                        $this->getFieldArgNode($object, $fieldName, $argName),
                         $this->getFieldNode($iface, $fieldName),
                     ]
                 );
             }
-        }
-    }
-
-    /**
-     * @param ObjectType|InterfaceType $type
-     */
-    private function validateTypeImplementsAncestors(ImplementingType $type, InterfaceType $iface) : void
-    {
-        $typeInterfaces = $type->getInterfaces();
-        foreach ($iface->getInterfaces() as $transitive) {
-            if (in_array($transitive, $typeInterfaces, true)) {
-                continue;
-            }
-
-            $error = $transitive === $type ?
-                sprintf(
-                    'Type %s cannot implement %s because it would create a circular reference.',
-                    $type->name,
-                    $iface->name
-                ) :
-                sprintf(
-                    'Type %s must implement %s because it is implemented by %s.',
-                    $type->name,
-                    $transitive->name,
-                    $iface->name
-                );
-            $this->reportError(
-                $error,
-                array_merge(
-                    $this->getAllImplementsInterfaceNodes($iface, $transitive),
-                    $this->getAllImplementsInterfaceNodes($type, $iface)
-                )
-            );
         }
     }
 

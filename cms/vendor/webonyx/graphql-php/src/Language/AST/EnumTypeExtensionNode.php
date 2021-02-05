@@ -12,9 +12,9 @@ class EnumTypeExtensionNode extends Node implements TypeExtensionNode
     /** @var NameNode */
     public $name;
 
-    /** @var NodeList<DirectiveNode> */
+    /** @var NodeList<DirectiveNode>|null */
     public $directives;
 
-    /** @var NodeList<EnumValueDefinitionNode> */
+    /** @var NodeList<EnumValueDefinitionNode>|null */
     public $values;
 }

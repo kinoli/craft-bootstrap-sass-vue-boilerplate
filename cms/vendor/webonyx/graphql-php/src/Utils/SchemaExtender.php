@@ -22,7 +22,6 @@ use GraphQL\Type\Definition\Directive;
 use GraphQL\Type\Definition\EnumType;
 use GraphQL\Type\Definition\EnumValueDefinition;
 use GraphQL\Type\Definition\FieldArgument;
-use GraphQL\Type\Definition\ImplementingType;
 use GraphQL\Type\Definition\InputObjectType;
 use GraphQL\Type\Definition\InterfaceType;
 use GraphQL\Type\Definition\ListOfType;
@@ -273,11 +272,9 @@ class SchemaExtender
     }
 
     /**
-     * @param ObjectType|InterfaceType $type
-     *
-     * @return array<int, InterfaceType>
+     * @return InterfaceType[]
      */
-    protected static function extendImplementedInterfaces(ImplementingType $type) : array
+    protected static function extendImplementedInterfaces(ObjectType $type) : array
     {
         $interfaces = array_map(static function (InterfaceType $interfaceType) {
             return static::extendNamedType($interfaceType);
@@ -285,7 +282,7 @@ class SchemaExtender
 
         $extensions = static::$typeExtensionsMap[$type->name] ?? null;
         if ($extensions !== null) {
-            /** @var ObjectTypeExtensionNode|InterfaceTypeExtensionNode $extension */
+            /** @var ObjectTypeExtensionNode $extension */
             foreach ($extensions as $extension) {
                 foreach ($extension->interfaces as $namedType) {
                     $interfaces[] = static::$astBuilder->buildType($namedType);
@@ -403,9 +400,6 @@ class SchemaExtender
         return new InterfaceType([
             'name' => $type->name,
             'description' => $type->description,
-            'interfaces' => static function () use ($type) : array {
-                return static::extendImplementedInterfaces($type);
-            },
             'fields' => static function () use ($type) : array {
                 return static::extendFieldMap($type);
             },
@@ -480,7 +474,7 @@ class SchemaExtender
 
         return array_merge(
             $existingDirectives,
-            array_map(static function (DirectiveDefinitionNode $directive) : Directive {
+            array_map(static function (DirectiveDefinitionNode $directive) {
                 return static::$astBuilder->buildDirective($directive);
             }, $directiveDefinitions)
         );
@@ -498,21 +492,20 @@ class SchemaExtender
     }
 
     /**
-     * @param array<string, bool> $options
+     * @param mixed[]|null $options
      */
-    public static function extend(Schema $schema, DocumentNode $documentAST, array $options = []) : Schema
+    public static function extend(Schema $schema, DocumentNode $documentAST, ?array $options = null) : Schema
     {
-        if (! (isset($options['assumeValid']) || isset($options['assumeValidSDL']))) {
+        if ($options === null || ! (isset($options['assumeValid']) || isset($options['assumeValidSDL']))) {
             DocumentValidator::assertValidSDLExtension($documentAST, $schema);
         }
 
-        /** @var array<string, Node&TypeDefinitionNode> $typeDefinitionMap */
         $typeDefinitionMap         = [];
         static::$typeExtensionsMap = [];
         $directiveDefinitions      = [];
         /** @var SchemaDefinitionNode|null $schemaDef */
         $schemaDef = null;
-        /** @var array<int, SchemaTypeExtensionNode> $schemaExtensions */
+        /** @var SchemaTypeExtensionNode[] $schemaExtensions */
         $schemaExtensions = [];
 
         $definitionsCount = count($documentAST->definitions);
@@ -559,11 +552,11 @@ class SchemaExtender
             }
         }
 
-        if (count(static::$typeExtensionsMap) === 0
-            && count($typeDefinitionMap) === 0
-            && count($directiveDefinitions) === 0
-            && count($schemaExtensions) === 0
-            && $schemaDef === null
+        if (count(static::$typeExtensionsMap) === 0 &&
+            count($typeDefinitionMap) === 0 &&
+            count($directiveDefinitions) === 0 &&
+            count($schemaExtensions) === 0 &&
+            $schemaDef === null
         ) {
             return $schema;
         }
@@ -622,13 +615,13 @@ class SchemaExtender
         $types = array_merge(
             // Iterate through all types, getting the type definition for each, ensuring
             // that any type not directly referenced by a field will get created.
-            array_map(static function (Type $type) : Type {
+            array_map(static function ($type) {
                 return static::extendNamedType($type);
-            }, $schema->getTypeMap()),
+            }, array_values($schema->getTypeMap())),
             // Do the same with new types.
-            array_map(static function (TypeDefinitionNode $type) : Type {
+            array_map(static function ($type) : Type {
                 return static::$astBuilder->buildType($type);
-            }, $typeDefinitionMap)
+            }, array_values($typeDefinitionMap))
         );
 
         return new Schema([

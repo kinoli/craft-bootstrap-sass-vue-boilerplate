@@ -15,10 +15,10 @@ class FieldNode extends Node implements SelectionNode
     /** @var NameNode|null */
     public $alias;
 
-    /** @var NodeList<ArgumentNode> */
+    /** @var NodeList<ArgumentNode>|null */
     public $arguments;
 
-    /** @var NodeList<DirectiveNode> */
+    /** @var NodeList<DirectiveNode>|null */
     public $directives;
 
     /** @var SelectionSetNode|null */

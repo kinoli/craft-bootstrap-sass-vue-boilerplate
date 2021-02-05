@@ -55,7 +55,7 @@ use function sprintf;
  *        }
  *     ]);
  */
-class ObjectType extends Type implements OutputType, CompositeType, NullableType, NamedType, ImplementingType
+class ObjectType extends Type implements OutputType, CompositeType, NullableType, NamedType
 {
     /** @var ObjectTypeDefinitionNode|null */
     public $astNode;
@@ -76,14 +76,14 @@ class ObjectType extends Type implements OutputType, CompositeType, NullableType
     /**
      * Lazily initialized.
      *
-     * @var array<int, InterfaceType>
+     * @var InterfaceType[]
      */
     private $interfaces;
 
     /**
      * Lazily initialized.
      *
-     * @var array<string, InterfaceType>
+     * @var InterfaceType[]
      */
     private $interfaceMap;
 
@@ -180,7 +180,7 @@ class ObjectType extends Type implements OutputType, CompositeType, NullableType
     }
 
     /**
-     * @return array<int, InterfaceType>
+     * @return InterfaceType[]
      */
     public function getInterfaces() : array
     {

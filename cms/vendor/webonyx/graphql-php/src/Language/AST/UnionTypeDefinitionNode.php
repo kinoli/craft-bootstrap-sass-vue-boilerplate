@@ -15,7 +15,7 @@ class UnionTypeDefinitionNode extends Node implements TypeDefinitionNode
     /** @var NodeList<DirectiveNode> */
     public $directives;
 
-    /** @var NodeList<NamedTypeNode> */
+    /** @var NodeList<NamedTypeNode>|null */
     public $types;
 
     /** @var StringValueNode|null */

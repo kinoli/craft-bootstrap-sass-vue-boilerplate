@@ -6,7 +6,6 @@ namespace GraphQL\Utils;
 
 use GraphQL\Type\Definition\AbstractType;
 use GraphQL\Type\Definition\CompositeType;
-use GraphQL\Type\Definition\ImplementingType;
 use GraphQL\Type\Definition\ListOfType;
 use GraphQL\Type\Definition\NonNull;
 use GraphQL\Type\Definition\ObjectType;
@@ -83,10 +82,10 @@ class TypeComparators
         }
 
         // If superType type is an abstract type, maybeSubType type may be a currently
-        // possible object or interface type.
+        // possible object type.
         return Type::isAbstractType($superType) &&
-            $maybeSubType instanceof ImplementingType &&
-            $schema->isSubType(
+            $maybeSubType instanceof ObjectType &&
+            $schema->isPossibleType(
                 $superType,
                 $maybeSubType
             );
@@ -115,7 +114,7 @@ class TypeComparators
                 // If both types are abstract, then determine if there is any intersection
                 // between possible concrete types of each.
                 foreach ($schema->getPossibleTypes($typeA) as $type) {
-                    if ($schema->isSubType($typeB, $type)) {
+                    if ($schema->isPossibleType($typeB, $type)) {
                         return true;
                     }
                 }
@@ -124,12 +123,12 @@ class TypeComparators
             }
 
             // Determine if the latter type is a possible concrete type of the former.
-            return $schema->isSubType($typeA, $typeB);
+            return $schema->isPossibleType($typeA, $typeB);
         }
 
         if ($typeB instanceof AbstractType) {
             // Determine if the former type is a possible concrete type of the latter.
-            return $schema->isSubType($typeB, $typeA);
+            return $schema->isPossibleType($typeB, $typeA);
         }
 
         // Otherwise the types do not overlap.
