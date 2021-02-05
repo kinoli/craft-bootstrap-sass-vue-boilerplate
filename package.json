@@ -9,7 +9,9 @@
     "lint": "eslint --ext .js,.vue -f ./node_modules/eslint-friendly-formatter src",
     "dev": "webpack --mode development --config .kinoli/webpack.dev.js && webpack-dev-server --mode development --hot --config .kinoli/webpack.server.js",
     "lint:fix": "eslint --ext .js,.vue -f ./node_modules/eslint-friendly-formatter --fix src",
-    "redactor": "webpack --mode development --config .kinoli/webpack.redactor.js"
+    "redactor": "webpack --mode development --config .kinoli/webpack.redactor.js",
+    "storybook": "start-storybook -p 6006",
+    "build-storybook": "build-storybook"
   },
   "dependencies": {
     "axios": "^0.21.1",
@@ -29,6 +31,10 @@
     "@babel/plugin-transform-arrow-functions": "^7.8.3",
     "@babel/preset-env": "^7.9.6",
     "@babel/preset-es2015": "^7.0.0-beta.53",
+    "@storybook/addon-actions": "^6.1.17",
+    "@storybook/addon-essentials": "^6.1.17",
+    "@storybook/addon-links": "^6.1.17",
+    "@storybook/vue": "^6.1.17",
     "@vue/cli-plugin-unit-jest": "~4.5.0",
     "@vue/test-utils": "^1.0.3",
     "autoprefixer": "^9.7.6",

@@ -1,7 +1,7 @@
 <template lang="html">
-  <section class="logo">
+  <div class="logo">
     <img :src="privateState.imgSrc" alt="Logo" />
-  </section>
+  </div>
 </template>
 
 <script lang="js">
