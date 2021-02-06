@@ -103,7 +103,28 @@ If you get an error and your web server is setup properly, you can run the Craft
 
 > {tip} That `.env` file will be processed via [PHP dotenv], which the `craftcms/craft` project comes with preinstalled. The advantage of using PHP dotenv is that it offers a place to store sensitive information (like database connection settings) in a file that doesn’t get committed to your Git repository.
 
-### Update and Install Craft Plugins
+## Workflow
+
+Some helpful commands to run during your workflow
+
+```sh
+// show all available nitro commands
+nitro
+
+// start up nitro - fires up all of the docker containers
+nitro start
+
+// stop nitro - brings all of the docker containers down
+nitro stop
+
+// fire up the development server for Vue
+yarn dev
+
+// Fires up Storybook for rapid UI component development
+yarn storybook
+```
+
+## Update and Install Craft Plugins
 
 Login to your craft installation at `/admin` and navigate to the Utilities tab and run all the updates so your CraftCMS installation is up to date.
 
@@ -117,7 +138,7 @@ Here are some plugins that I like to use on my websites. These can all be instal
 * Redactor Custom Styles
 * Redactor Tweaks
 
-## 6. Configure FTP Deployment
+## Configure FTP Deployment
 
 Deployment is done by running `yarn build` and everything in the /public_html directory needs to be sync'd to your server, as well, any changes in your /cms/templates directory.
 
