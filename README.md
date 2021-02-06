@@ -77,7 +77,7 @@ nitro init
 nitro add
 ```
 
-## 4. install Craft
+## 4. Install Craft
 Now run the craft install script.
 ```
 nitro craft install
