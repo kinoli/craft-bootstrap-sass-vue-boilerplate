@@ -22,6 +22,7 @@ After running `` $ yarn dev `` or `` $ yarn build ``, your deploy-ready code wil
 This project scaffolding is rather opinionated and makes use of the following tools, open source projects, and architecture methodologies:
 
 * [Craft CMS 3](https://craftcms.com/) - Craft is a content-first CMS that aims to make life enjoyable for developers and content managers alike.
+* [Craft Nitro 2 / Docker](https://craftcms.com/docs/nitro/2.x/) - Quickly setup a local docker server configured for Craft
 * [Webpack 4](https://webpack.js.org/) - A bundler for JavaScript and friends with [code splitting](https://webpack.js.org/guides/code-splitting/) and [Hot Module Replacement](https://webpack.js.org/guides/hot-module-replacement/) set up.
 * [Bootstrap-Vue](https://bootstrap-vue.js.org/) - The non-jquery vue.js port of Bootstrap 4.
 * [Vue.js 2](https://vuejs.org/) - The Progressive JavaScript Framework
@@ -31,6 +32,8 @@ This project scaffolding is rather opinionated and makes use of the following to
 * [ESLint](https://eslint.org/) - The pluggable linting utility for JavaScript and JSX.
 * [Standard JS](https://standardjs.com/) - JavaScript Standard Style
 * [Fontastic](http://fontastic.me/) - Add Vector Icons to Your Website
+* [Jest with Vue Testing library](https://testing-library.com/docs/vue-testing-library/intro/) - The real way to unit test your components
+* [Storybook](https://storybook.js.org/) - Make UI component development a breeze
 
 # Installation
 

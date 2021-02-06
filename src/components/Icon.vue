@@ -1,9 +1,10 @@
 <template>
-  <div class="icon" :class="`icon-${name}`" :style="{ color: color, fontSize: size }"></div>
+  <div class="icon" :class="`icon-${name}`" :style="{ color, fontSize: size }" data-testid="icon"></div>
 </template>
 
 <script>
 export default {
+  name: 'Icon',
   props: {
     color: {
       type: String,
@@ -11,11 +12,11 @@ export default {
     },
     size: {
       type: String,
-      default: '',
+      default: '24px',
     },
     name: {
       type: String,
-      default: '',
+      required: true,
     },
   },
 }
