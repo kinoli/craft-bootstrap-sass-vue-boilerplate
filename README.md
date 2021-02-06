@@ -66,7 +66,7 @@ $ npm install
 ### Nitro/Docker
 Craft has created this super simple tool to run a local dev server for Craft within Docker. It will hardwire your local environment specifically for Craft and in my experience removes all the headaches of setting up and configuring a Docker environment on your own. Use it.
 
-You need to have Docker installed if you want to run through it.
+**Note:** You need to have Docker installed and running at this point.
 ```
 // install Nitro globally with Homebrew
 brew tap craftcms/nitro
