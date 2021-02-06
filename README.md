@@ -62,21 +62,7 @@ $ yarn
 $ npm install
 ```
 
-## 3. Set up the Database
-
-You’ll need to create a database for your Craft project. Craft 3 supports both MySQL 5.5+ and PostgreSQL 9.5+.
-
-If you’re given a choice, we recommend the following database settings in most cases:
-
-- **MySQL**
-  - Default Character Set: `utf8`
-  - Default Collation: `utf8_unicode_ci`
-
-- **PostgreSQL**
-  - Character Set: `UTF8`
-
-## 4. Set up the Web Server
-Here are some suggested local server environments you can use.
+## 4. Set up the Web Server with Nitro
 ### Nitro/Docker
 Craft has created this super simple tool to run a local dev server for Craft within Docker. It will hardwire your local environment specifically for Craft and in my experience removes all the headaches of setting up and configuring a Docker environment on your own. Use it.
 
@@ -97,13 +83,16 @@ Now run the craft install script.
 nitro craft install
 ```
 
-Now, run the web server so you can load the Craft installation. This will copy the necessary files into your `/dev` directory.
+Add your domain to the cms/.env file, the dev webpack server uses it
+```sh
+PRIMARY_DOMAIN=my-domain.nitro
+```
+
+Now, run the web server so you can load the Craft installation. This will copy the necessary files into your `/dev` directory and setup hot reloading for watching changes to vue components and Craft/Twig templates
 
 ``` sh
 yarn dev
 ```
-
-If you get an error and your web server is setup properly, you can run the Craft installation by pointing your web browser to `http://HOSTNAME/index.php?p=admin` (substituting `HOSTNAME` with your new web server’s host name). You should get the Craft installation wizard, which will take you through a couple setup screens, and then perform the actual installation.
 
 > {tip} That `.env` file will be processed via [PHP dotenv], which the `craftcms/craft` project comes with preinstalled. The advantage of using PHP dotenv is that it offers a place to store sensitive information (like database connection settings) in a file that doesn’t get committed to your Git repository.
 
@@ -124,8 +113,11 @@ nitro stop
 // fire up the development server for Vue
 yarn dev
 
-// Fires up Storybook for rapid UI component development
+// Fires up Storybook for rapid UI component development (Use this for Vue development)
 yarn storybook
+
+// Run unit tests
+yarn test
 ```
 
 ## Update and Install Craft Plugins
