@@ -62,7 +62,7 @@ $ yarn
 $ npm install
 ```
 
-## 4. Set up the Web Server with Nitro
+## 3. Set up the Web Server with Nitro
 ### Nitro/Docker
 Craft has created this super simple tool to run a local dev server for Craft within Docker. It will hardwire your local environment specifically for Craft and in my experience removes all the headaches of setting up and configuring a Docker environment on your own. Use it.
 
@@ -77,7 +77,7 @@ nitro init
 nitro add
 ```
 
-## 5. install Craft
+## 4. install Craft
 Now run the craft install script.
 ```
 nitro craft install
@@ -96,6 +96,10 @@ yarn dev
 
 > {tip} That `.env` file will be processed via [PHP dotenv], which the `craftcms/craft` project comes with preinstalled. The advantage of using PHP dotenv is that it offers a place to store sensitive information (like database connection settings) in a file that doesn’t get committed to your Git repository.
 
+## You're done!
+
+------------------------
+
 ## Workflow
 
 Some helpful commands to run during your workflow
@@ -113,11 +117,14 @@ nitro stop
 // fire up the development server for Vue
 yarn dev
 
-// Fires up Storybook for rapid UI component development (Use this for Vue development)
+// fires up Storybook for rapid UI component development (Use this for Vue development)
 yarn storybook
 
-// Run unit tests
+// run unit tests
 yarn test
+
+// This will update your redactor styling based on your website styling and what you add in _redactor-custom.scss
+yarn redactor
 ```
 
 ## Update and Install Craft Plugins
@@ -142,12 +149,12 @@ To do ftp deployment through your IDE's ftp sync from `/public_html` and `/cms` 
 
 This boilerplate has sftp config setup for VSCode, which I highly recommend, but not required. A sample vscode config file is included in `/.vscode/sftp.json`, you can simply configure it as needed.
 
-Deployment should be automated, but currently it is not. After you do a `yarn build`, just upload the following...
+Deployment should be automated, but thats up to you to decide how you want to do it. After you do a `yarn build`, just upload the following...
 
 * /cms/templates/layout.twig
 * /public_html/lib/
 
-There is likely a way to automate this either through gitLab or even Webpack, but it currently is not setup yet.
+There is likely a way to automate this either through github, gitLab or even Webpack, but it currently is not setup yet.
 
 # About Craft CMS
 
